@@ -27,7 +27,7 @@ Data
 The data is stored as a collection of versioned items, where each item has the
 following properties:
 
- - string guid
+ - string id
  - string revid
  - list   previous revisions
  - int    creation          (timestamp)
@@ -37,14 +37,14 @@ following properties:
  - string text
  - float  sort position
 
-The `guid` is chosen randomly on creation, `revid` contains the revision number
+The `id` is chosen randomly on creation, `revid` contains the revision number
 (incremented on each change) plus a hash value of the json-encoding of the
 object (without the hash field) - possibly after encryption.
 `previous revisions` is a list of all previous revisions of this object (needed
 for resolving conflicts).
 
-Each item is stored json-encoded under the file name `guid + '-' + revid`.
-`guid` and `revid` are omitted from the json encoding to avoid inconsistencies.
+Each item is stored json-encoded under the file name `id + '-' + revid`.
+`id` and `revid` are omitted from the json encoding to avoid inconsistencies.
 
 An item is considered resolved iff its resolution timestamp is nonzero.
 
@@ -54,7 +54,7 @@ Benefits of this Way to Store the Data
 Pushing a change to the storage consists of simply adding a file to the storage.
 There will be no write conflicts unless we find a hash collision. The current
 version of the item is always the lexicographically largest filename that starts
-with the guid of the item.
+with the id of the item.
 
 Conflicts are detected whenever there is a revid for an item that is not part of
 the previous revisions field. In this case, the software tries to resolve the
@@ -125,7 +125,7 @@ Splitting on Conflict
 If two revisions of an item are too different (especially when the text changes
 drastically), splitting the item into two could be reasonable (this needs to be
 investigated). For this, an independent copy of the item is created, where the
-guid is the hash value of the revision that is to be cloned (the one with the
+id is the hash value of the revision that is to be cloned (the one with the
 smaller revision is used). This method could result in duplicates and its
 feasibility has to be determined.
 
