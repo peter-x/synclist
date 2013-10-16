@@ -1,16 +1,16 @@
 Item Object
 ===========
 
-This is the basic data structure that describes a list item. This class handles
-all transformations that are necessary to store the data in a database and also
-merges conflicting revisions.
+An `Item` is the basic data structure, it describes a list entry. This class
+handles all transformations that are necessary to store the data in a database
+and also merges conflicting revisions.
 
     class Item
 
 Constructors and Factory Functions
 ----------------------------------
 
-The constructor should not be called from outside. Please use the factory
+The constructor should only be used internally. Please use the factory
 functions `@createNew` and `@createFromJSON`.
         
         constructor: (@id, @revision = '', @revisions = [],
@@ -20,7 +20,7 @@ functions `@createNew` and `@createFromJSON`.
 Creates a new `Item` object from a filename consisting of the id, the revision
 number and the hash (for example `ag76utHefufiuepUi-17-Tefu0thdiyeH`) and the
 decrypted file contents, i.e. a JSON string. On error, this function returns
-null.
+null, it does not save the Item to the database.
         @createFromJSON: (filename, text) ->
             try
                 data = JSON.parse text
@@ -50,42 +50,52 @@ null.
                      data.category, data.text,
                      data.position)
 
-This function creates a new item and automatically generates an id for it.
-It returns null on error.
+This factory function creates a new item and automatically generates an id for
+it. The item is immediately saved to the databes.
+The function returns null on error.
 
         @createNew: (text, category = '', position = 0) ->
             if not (typeof text is typeof category is 'string' and
                                    typeof position is 'number')
                 null
             else
-                new Item(@generateID(), '', [],
-                         +new Date, 0, +new Date,
-                         category, text, position)
+                item = new Item(@generateID(), '', [],
+                                +new Date, 0, +new Date,
+                                category, text, position)
+                item.save
+                item
 
 Getters and Setters
 -------------------
 
 Note that all setters immediately trigger a "save to database".
 
+Creation timestamp.
         getCreated: -> @creation
 
+The resolution ('checked' state) and its timestamp.
         isResolved: -> @resolution > 0
         getResolved: -> @resolution
         setResolved: ->
             @resolution = +new Date
             @adjustModificationAndSave()
 
+The Category, an arbitrary string.
         getCategory: -> @category
-        setCategory: (@category) ->
-            @adjustModificationAndSave()
+        setCategory: (@category) -> @adjustModificationAndSave()
 
+The main text, also an arbitrary string.
         getText: -> @text
-        setText: (@text) ->
-            @adjustModificationAndSave()
+        setText: (@text) -> @adjustModificationAndSave()
 
+The position inside its category, an arbitrary number.
         getPosition: -> @position
-        setPosition: (@position) ->
-            @adjustModificationAndSave()
+        setPosition: (@position) -> @adjustModificationAndSave()
+
+Comparison Function
+-------------------
+
+        @comparator: (a, b) -> return a.position - b.position
 
 Merge function
 --------------
@@ -100,7 +110,7 @@ latest common ancestor of both items.
                      text, category, position)
 
 Private Helper Functions
-----------------------------
+------------------------
 
 Adjust modification time and save to the database.
         adjustModificationAndSave: ->
@@ -114,28 +124,15 @@ or merging, it will be done afterwards by the merge service.
             @revision = @getIncementedRevision()
             throw 'Not yet implemented.'
 
-Create a new random id.
-        @generateID: (length = 22) ->
-            characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-            (characters[Math.floor(Math.random() * characters.length)] for i in [1..length]).join('')
-
-Compute the incremented revision string.
+Compute the incremented revision string of this object.
         getIncrementedRevision: ->
             rev = @revision || '0-'
             revisionNumber = +(@revision.split '-')[0]
             "#{ revisionNumber + 1 }-#{ @getHash() }"
 
-Compute the hash part of the revision string.
+Compute the hash part of the revision string of this object.
         getHash: ->
             Crypto.hash @jsonEncode()
-
-Return sorted union of revisions
-        @sortRevisions: (revisions...) ->
-            revs = {}
-            revs[r] = 1 for r in revisions
-            revs = [r for r in revs]
-            revs.sort(@revisionComparator)
-            revs
 
 Compute the JSON encoding of the item.
         jsonEncode: ->
@@ -146,6 +143,23 @@ Compute the JSON encoding of the item.
                 modification: @modification,
                 category: @category, text: @text,
                 position: @position}
+
+
+Private and Static Helper Functions
+-----------------------------------
+
+Create and return a new random id.
+        @generateID: (length = 22) ->
+            characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+            (characters[Math.floor(Math.random() * characters.length)] for i in [1..length]).join('')
+
+Return sorted list of revisions without duplicates.
+        @sortRevisions: (revisions...) ->
+            revs = {}
+            revs[r] = 1 for r in revisions
+            revs = [r for r in revs]
+            revs.sort(@revisionComparator)
+            revs
 
 Comparison function for revision strings: First compare the integer revision
 number and then the string.
