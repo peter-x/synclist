@@ -70,6 +70,9 @@ Getters and Setters
 
 Note that all setters immediately trigger a "save to database".
 
+ID
+        getID: -> @id
+
 Creation timestamp.
         getCreated: -> @creation
 
@@ -204,18 +207,15 @@ Save the item to the database. This function does not handle conflict resolution
 or merging, it will be done afterwards by the merge service.
         save: ->
             @revisions.push(@revision)
-            @revision = @getIncementedRevision()
-            throw 'Not yet implemented.'
+            data = @jsonEncode()
+            @revision = @getIncrementedRevision()
+            Database.save("#{ @id }-#{ @revision }", data)
 
 Compute the incremented revision string of this object.
-        getIncrementedRevision: ->
+        getIncrementedRevision: (data) ->
             rev = @revision || '0-'
-            revisionNumber = +(@revision.split '-')[0]
-            "#{ revisionNumber + 1 }-#{ @getHash() }"
-
-Compute the hash part of the revision string of this object.
-        getHash: ->
-            Crypto.hash @jsonEncode()
+            revisionNumber = +(rev.split '-')[0]
+            "#{ revisionNumber + 1 }-#{ Crypto.hash data }"
 
 Compute the JSON encoding of the item.
         jsonEncode: ->
@@ -258,3 +258,6 @@ number and then the string.
             else
                 0
 
+Export the Item
+---------------
+    (exports ? this).Item = Item
