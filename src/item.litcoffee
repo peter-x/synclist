@@ -101,13 +101,96 @@ Merge function
 --------------
 
 Compute a new `Item` that is a merged version of this and `item`. `base` is the
-latest common ancestor of both items.
+latest common ancestor of both items. The new item is immediately saved.
         mergeWith: (item, base) ->
-            throw "Not yet implemented"
-            new Item(@id, @sortRevisions(@revision, item.revision)[1],
-                          @sortRevisions(@revisions..., item.revisions...),
+The merge strategy is as follows:
+
+ - revision: Take the higher revision (it will be incemented just before
+   saving).
+            revision = @sortRevisions(@revision, item.revision)[1]
+
+ - revisions: Compute the union of everything known.
+            revisions = @sortRevisions(@revision, item.revision,
+                                       @revisions..., item.revisions...)
+
+ - creation: This is actually read-only, so take the base.
+            creation = base.creation
+
+ - resolution:
+            resolution =
+
+   If both resolution timestamps are equal with respect to their
+   truth value, take the earlier one.
+                if (item.resolution > 0) is (@resolution > 0)
+                    Math.min(item.resolution, @resolution)
+
+   Otherwise, take the one that differs from the base.
+                else if (item.resolution > 0) isnt (base.resolution > 0)
+                    item.resolution
+                else
+                    @resolution
+
+ - modification: Take the maximum.
+            modification = Math.max(@modification, item.modification)
+
+ - text:
+            text =
+   If both are equal, take anything.
+                if @text == item.text
+                    @text
+   If only one differs from base, take that one.
+                else if @text == base.text
+                    item.text
+                else if item.text == base.text
+                    @text
+   Now the really complicated case: both text differ. It would probably be best
+   to create two independent copies of the item. This could alse be a viable
+   solution if there are large changes in the text and something else changed in
+   the other version. This idea will perhaps be implemented in a later version.
+                else if @text < item.text
+                    @text + ', ' + item.text
+                else
+                    item.text + ', ' + @text
+
+ - category: Here we use exactly the same strategy we used for the text.
+            category =
+                if @category == item.category
+                    @category
+                else if @category == base.category
+                    item.category
+                else if item.category == base.category
+                    @category
+                else if @category < item.category
+                    @category + ', ' + item.category
+                else
+                    item.category + ', ' + @category
+
+ - position: Use the one that differs from base and the minimum if both differ.
+            position =
+                if @position is base.position
+                    item.position
+                else if item.position is base.position
+                    @position
+                else
+                    Math.min(@position, item.position)
+
+            new Item(@id, revision, revisions,
                      creation, resolution, modification,
                      text, category, position)
+
+Determine the latest common ancestor revision of two items. Returns `undefined`
+if they do not share an ancestor. Note that one of the two items itself can be
+an ancestor of the other.
+        getLatestCommonAncestor: (item) ->
+            if @revision is item.revision or @revision in item.revisions
+                @revision
+            else if item.revision in @revisions
+                item.revision
+            else
+                len = Math.min(@revisions.length, item.revisions.length)
+                i = 0
+                i += 1 while @revisions[i] is item.revisions[i]
+                @revisions[i - 1]
 
 Private Helper Functions
 ------------------------
