@@ -19,8 +19,9 @@ functions `@createNew` and `@createFromJSON`.
 
 Creates a new `Item` object from a filename consisting of the id, the revision
 number and the hash (for example `ag76utHefufiuepUi-17-Tefu0thdiyeH`) and the
-decrypted file contents, i.e. a JSON string. On error, this function returns
-null, it does not save the Item to the database.
+decrypted file contents, i.e. a JSON string. It does not save the item to the
+database. On error, this function returns null.
+
         @createFromJSON: (filename, text) ->
             try
                 data = JSON.parse text
@@ -71,12 +72,15 @@ Getters and Setters
 Note that all setters immediately trigger a "save to database".
 
 ID
+
         getID: -> @id
 
 Creation timestamp.
+
         getCreated: -> @creation
 
 The resolution ('checked' state) and its timestamp.
+
         isResolved: -> @resolution > 0
         getResolved: -> @resolution
         setResolved: ->
@@ -84,14 +88,17 @@ The resolution ('checked' state) and its timestamp.
             @adjustModificationAndSave()
 
 The Category, an arbitrary string.
+
         getCategory: -> @category
         setCategory: (@category) -> @adjustModificationAndSave()
 
 The main text, also an arbitrary string.
+
         getText: -> @text
         setText: (@text) -> @adjustModificationAndSave()
 
 The position inside its category, an arbitrary number.
+
         getPosition: -> @position
         setPosition: (@position) -> @adjustModificationAndSave()
 
@@ -105,57 +112,74 @@ Merge function
 
 Compute a new `Item` that is a merged version of this and `item`. `base` is the
 latest common ancestor of both items. The new item is immediately saved.
+
         mergeWith: (item, base) ->
+
 The merge strategy is as follows:
 
  - revision: Take the higher revision (it will be incemented just before
    saving).
+
             revision = Item.sortRevisions(@revision, item.revision)[1]
 
  - revisions: Compute the union of everything known.
+
             revisions = Item.sortRevisions(@revision, item.revision,
                                        @revisions..., item.revisions...)
 
  - creation: This is actually read-only, so take the base.
+
             creation = base.creation
 
  - resolution:
+
             resolution =
 
    If both resolution timestamps are equal with respect to their
    truth value, take the earlier one.
+
                 if (item.resolution > 0) is (@resolution > 0)
                     Math.min(item.resolution, @resolution)
 
    Otherwise, take the one that differs from the base.
+
                 else if (item.resolution > 0) isnt (base.resolution > 0)
                     item.resolution
                 else
                     @resolution
 
  - modification: Take the maximum.
+
             modification = Math.max(@modification, item.modification)
 
  - text:
+
             text =
+
    If both are equal, take anything.
+
                 if @text == item.text
                     @text
+
    If only one differs from base, take that one.
+
                 else if @text == base.text
                     item.text
                 else if item.text == base.text
                     @text
+
    Now the really complicated case: both text differ. It would probably be best
    to create two independent copies of the item. This could alse be a viable
    solution if there are large changes in the text and something else changed in
    the other version. This idea will perhaps be implemented in a later version.
+
                 else if @text < item.text
                     @text + ', ' + item.text
                 else
                     item.text + ', ' + @text
 
  - category: Here we use exactly the same strategy we used for the text.
+
             category =
                 if @category == item.category
                     @category
@@ -169,6 +193,7 @@ The merge strategy is as follows:
                     item.category + ', ' + @category
 
  - position: Use the one that differs from base and the minimum if both differ.
+
             position =
                 if @position is base.position
                     item.position
@@ -184,6 +209,7 @@ The merge strategy is as follows:
 Determine the latest common ancestor revision of two items. Returns `undefined`
 if they do not share an ancestor. Note that one of the two items itself can be
 an ancestor of the other.
+
         getLatestCommonAncestor: (item) ->
             if @revision is item.revision or @revision in item.revisions
                 @revision
@@ -199,12 +225,14 @@ Private Helper Functions
 ------------------------
 
 Adjust modification time and save to the database.
+
         adjustModificationAndSave: ->
             @modification = +new Date
             @save()
 
 Save the item to the database. This function does not handle conflict resolution
 or merging, it will be done afterwards by the merge service.
+
         save: ->
             @revisions.push(@revision) if @revision.length > 0
             data = @jsonEncode()
@@ -213,12 +241,14 @@ or merging, it will be done afterwards by the merge service.
             this
 
 Compute the incremented revision string of this object.
+
         getIncrementedRevision: (data) ->
             rev = @revision || '0-'
             revisionNumber = +(rev.split '-')[0]
             "#{ revisionNumber + 1 }-#{ Crypto.hash data }"
 
 Compute the JSON encoding of the item.
+
         jsonEncode: ->
             @revisions = Item.sortRevisions(@revisions...)
             JSON.stringify {
@@ -233,11 +263,13 @@ Private and Static Helper Functions
 -----------------------------------
 
 Create and return a new random id.
+
         @generateID: (length = 22) ->
             characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
             (characters[Math.floor(Math.random() * characters.length)] for i in [1..length]).join('')
 
 Return sorted list of revisions without duplicates.
+
         @sortRevisions: (revisions...) ->
             revs = {}
             revs[r] = 1 for r in revisions
@@ -247,6 +279,7 @@ Return sorted list of revisions without duplicates.
 
 Comparison function for revision strings: First compare the integer revision
 number and then the string.
+
         @revisionComparator: (a, b) ->
             [aNum, aRev] = a.split '-'
             [bNum, bRev] = b.split '-'
