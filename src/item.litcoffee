@@ -59,10 +59,10 @@ The function returns null on error.
                                    typeof position is 'number')
                 null
             else
-                item = new Item(@generateID(), '', [],
+                item = new Item(Item.generateID(), '', [],
                                 +new Date, 0, +new Date,
                                 category, text, position)
-                item.save
+                item.save()
                 item
 
 Getters and Setters
@@ -110,10 +110,10 @@ The merge strategy is as follows:
 
  - revision: Take the higher revision (it will be incemented just before
    saving).
-            revision = @sortRevisions(@revision, item.revision)[1]
+            revision = Item.sortRevisions(@revision, item.revision)[1]
 
  - revisions: Compute the union of everything known.
-            revisions = @sortRevisions(@revision, item.revision,
+            revisions = Item.sortRevisions(@revision, item.revision,
                                        @revisions..., item.revisions...)
 
  - creation: This is actually read-only, so take the base.
@@ -206,10 +206,11 @@ Adjust modification time and save to the database.
 Save the item to the database. This function does not handle conflict resolution
 or merging, it will be done afterwards by the merge service.
         save: ->
-            @revisions.push(@revision)
+            @revisions.push(@revision) if @revision.length > 0
             data = @jsonEncode()
-            @revision = @getIncrementedRevision()
+            @revision = @getIncrementedRevision data
             Database.save("#{ @id }-#{ @revision }", data)
+            this
 
 Compute the incremented revision string of this object.
         getIncrementedRevision: (data) ->
@@ -219,7 +220,7 @@ Compute the incremented revision string of this object.
 
 Compute the JSON encoding of the item.
         jsonEncode: ->
-            @revisions = @sortRevisions(@revisions...)
+            @revisions = Item.sortRevisions(@revisions...)
             JSON.stringify {
                 revisions: @revisions,
                 creation: @creation, resolution: @resolution,
@@ -240,8 +241,8 @@ Return sorted list of revisions without duplicates.
         @sortRevisions: (revisions...) ->
             revs = {}
             revs[r] = 1 for r in revisions
-            revs = [r for r in revs]
-            revs.sort(@revisionComparator)
+            revs = (r for r of revs)
+            revs.sort(Item.revisionComparator)
             revs
 
 Comparison function for revision strings: First compare the integer revision
