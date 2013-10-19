@@ -60,8 +60,9 @@ The function returns null on error.
                                    typeof position is 'number')
                 null
             else
+                timestamp = (+new Date) / 1000.0
                 item = new Item(Item.generateID(), '', [],
-                                +new Date, 0, +new Date,
+                                timestamp, 0, timestamp,
                                 category, text, position)
                 item.save()
                 item
@@ -84,7 +85,7 @@ The resolution ('checked' state) and its timestamp.
         isResolved: -> @resolution > 0
         getResolved: -> @resolution
         setResolved: ->
-            @resolution = +new Date
+            @resolution = (+new Date) / 1000.0
             @adjustModificationAndSave()
 
 The Category, an arbitrary string.
@@ -227,7 +228,7 @@ Private Helper Functions
 Adjust modification time and save to the database.
 
         adjustModificationAndSave: ->
-            @modification = +new Date
+            @modification = (+new Date) / 1000.0
             @save()
 
 Save the item to the database. This function does not handle conflict resolution
