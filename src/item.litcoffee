@@ -41,10 +41,10 @@ database. On error, this function returns null.
                         return null
             catch error
                 return null
-            m = /^([a-zA-Z0-9]+)-([1-9][0-9]*-[a-zA-Z0-9]+)$/.match filename
+            m = /^([a-zA-Z0-9]+)-([1-9][0-9]*-[a-zA-Z0-9]+)$/.exec filename
             if not m
                 return null
-            [id, revision] = m
+            [filename, id, revision] = m
 
             new Item(id, revision, data.revisions[...]
                      data.creation, data.resolution, data.modification
