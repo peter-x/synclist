@@ -2,8 +2,9 @@ Item Object
 ===========
 
 An `Item` is the basic data structure, it describes a list entry. This class
-handles all transformations that are necessary to store the data in a database
-and also merges conflicting revisions.
+automatically generates revision strings and can resolve conflicts. Each
+instance of this class is immutable and it is the user's responsibility to store
+and retreive all objects.
 
     class Item
 
@@ -17,10 +18,10 @@ functions `@createNew` and `@createFromJSON`.
                       @creation = 0, @resolution = 0, @modification = 0,
                       @category = '', @text = '', @position = 0) ->
 
-Creates a new `Item` object from a filename consisting of the id, the revision
+Creates an `Item` object from a filename consisting of the id, the revision
 number and the hash (for example `ag76utHefufiuepUi-17-Tefu0thdiyeH`) and the
-decrypted file contents, i.e. a JSON string. It does not save the item to the
-database. On error, this function returns null.
+decrypted file contents, i.e. a JSON string. The loaded data is not modified
+(i.e. no new revision string is generated). On error, this function returns null.
 
         @createFromJSON: (filename, text) ->
             try
@@ -51,9 +52,8 @@ database. On error, this function returns null.
                      data.category, data.text,
                      data.position)
 
-This factory function creates a new item and automatically generates an id for
-it. The item is immediately saved to the databes.
-The function returns null on error.
+This factory function creates a new item and automatically generates an id and
+first revision for it. The function returns null on error.
 
         @createNew: (text, category = '', position = 0) ->
             if not (typeof text is typeof category is 'string' and
@@ -64,13 +64,13 @@ The function returns null on error.
                 item = new Item(Item.generateID(), '', [],
                                 timestamp, 0, timestamp,
                                 category, text, position)
-                item.save()
-                item
+                item.updateRevision()
 
 Getters and Setters
 -------------------
 
-Note that all setters immediately trigger a "save to database".
+Note that the setters do not modify the `Item` but return a new one (with
+incremented revision number).
 
 ID
 
@@ -84,24 +84,22 @@ The resolution ('checked' state) and its timestamp.
 
         isResolved: -> @resolution > 0
         getResolved: -> @resolution
-        setResolved: ->
-            @resolution = (+new Date) / 1000.0
-            @adjustModificationAndSave()
+        setResolved: -> @changedCopy( -> @resolution = (+new Date) / 1000.0)
 
 The Category, an arbitrary string.
 
         getCategory: -> @category
-        setCategory: (@category) -> @adjustModificationAndSave()
+        setCategory: (category) -> @changedCopy( -> @category = category)
 
 The main text, also an arbitrary string.
 
         getText: -> @text
-        setText: (@text) -> @adjustModificationAndSave()
+        setText: (text) -> @changedCopy( -> @text = text)
 
 The position inside its category, an arbitrary number.
 
         getPosition: -> @position
-        setPosition: (@position) -> @adjustModificationAndSave()
+        setPosition: (position) -> @changedCopy( -> @position = position)
 
 Comparison Function
 -------------------
@@ -225,20 +223,29 @@ an ancestor of the other.
 Private Helper Functions
 ------------------------
 
-Adjust modification time and save to the database.
+Return a copy of this `Item`, where the function given as argument is applied
+(and of course revisions are updated).
 
-        adjustModificationAndSave: ->
+        changedCopy: (mod) ->
+            item = new Item(@id, @revision, @revisions[...],
+                            @creation, @resolution, @modification,
+                            @category, @text, @position)
+            mod.call(item)
+            item.adjustModificationAndUpdateRevision()
+
+Adjust modification time and update `@revision` and `@revisions` to the database.
+
+        adjustModificationAndUpdateRevision: ->
             @modification = (+new Date) / 1000.0
-            @save()
+            @updateRevision()
 
-Save the item to the database. This function does not handle conflict resolution
-or merging, it will be done afterwards by the merge service.
+Update `@revision` and `@revisions`: Push the current revision to `@revisions`,
+sort this array, increment the revision number and generate a new revision hash.
 
-        save: ->
+        updateRevision: ->
             @revisions.push(@revision) if @revision.length > 0
             data = @jsonEncode()
             @revision = @getIncrementedRevision data
-            Database.save("#{ @id }-#{ @revision }", data)
             this
 
 Compute the incremented revision string of this object.
