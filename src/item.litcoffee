@@ -104,7 +104,14 @@ The position inside its category, an arbitrary number.
 Comparison Function
 -------------------
 
-        @comparator: (a, b) -> return a.position - b.position
+Compare two items by position.
+
+        @comparator: (a, b) -> a.position - b.position
+
+Compare two items by their revision.
+
+        @isNewerThan: (otherItem) ->
+            @revisionComparator(@revision, otherItem.revision) > 0
 
 Merge function
 --------------
@@ -284,6 +291,9 @@ Return sorted list of revisions without duplicates.
             revs = (r for r of revs)
             revs.sort(Item.revisionComparator)
             revs
+
+Public and Static Helper Functions
+-----------------------------------
 
 Comparison function for revision strings: First compare the integer revision
 number and then the string.

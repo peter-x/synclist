@@ -1,8 +1,4 @@
 describe 'Item', ->
-    beforeEach ->
-        Database.setContext('synclist_test')
-        Database.clear()
-
     it 'should not create an item from corrupt JSON string', ->
         expect(Item.createFromJSON('1-abcdef01234', '{')).toBeNull()
     it 'should create an item from correct JSON string', ->
@@ -61,3 +57,33 @@ describe 'Item', ->
         expect(j.getCategory()).toEqual(i.getCategory())
         expect(j.revision).toEqual(i.revision)
         expect(j.revisions).toEqual(i.revisions)
+
+describe 'LocalStorageDatabase', ->
+    database = new LocalStorageDatabase('synclist_test')
+    beforeEach ->
+        database.clear()
+    it 'should list objects', ->
+        expect(database.listObjects()).toEqual([])
+        database.save 'firstitem', 'data'
+        expect(database.listObjects()).toEqual(['firstitem'])
+        database.save 'seconditem', 'data'
+        objects = database.listObjects()
+        objects.sort()
+        expect(objects).toEqual(['firstitem', 'seconditem'])
+    it 'should load the same data it saved', ->
+        data = 'abcdef'
+        database.save 'somefile', data
+        expect(database.load 'somefile').toEqual(data)
+    it 'should use the password', ->
+        database2 = new LocalStorageDatabase('synclist_test', 'otherpassword')
+        data = 'asoeuoecug'
+        database.save 'somefile2', data
+        expect(database2.load 'somefile2').not.toEqual(data)
+    it 'should call change observers', ->
+        callbackdata = null
+        database.onChange (data) -> callbackdata = data
+        expect(callbackdata).toBeNull()
+        database.save 'callbacktestfile', 'euotu'
+        expect(callbackdata).toEqual('callbacktestfile')
+        database.save 'callbacktestfile2', 'euotu'
+        expect(callbackdata).toEqual('callbacktestfile2')
