@@ -195,3 +195,42 @@ describe 'Utilities', ->
             .toEqual(['a'])
         expect(Utilities.symmetricSortedArrayDifference(['a'], ['a', 'b']))
             .toEqual(['b'])
+
+describe 'Manager',->
+    database = new LocalStorageDatabase 'synclist_test'
+    manager = null
+    beforeEach ->
+        database.clear()
+        database.clearObservers()
+        manager.clearObservers() if manager?
+        manager = new Manager(database)
+    it 'should save an item', ->
+        manager.saveItem Item.createNew 'testData'
+        items = (item for id, item of manager.getItems())
+        expect(items.length).toEqual 1
+    it 'should save a new revision', ->
+        item = manager.saveItem Item.createNew 'testData'
+        expect(id for id of manager.getItems()).toEqual([item.getID()])
+
+        item2 = manager.saveItem item.setCategory 'newCategory'
+        expect(id for id of manager.getItems()).toEqual([item.getID()])
+        expect(manager.getItems()[item.getID()].getRevision()).toEqual(item2.getRevision())
+    it 'should merge conflicts', ->
+        item = manager.saveItem Item.createNew 'testData'
+        id = item.getID()
+
+        item2 = manager.saveItem item.setCategory 'newCategory'
+        expect(manager.getItems()[id].getRevision()).toEqual(item2.getRevision())
+
+        item3 = manager.saveItem item.setText 'newText'
+        revision = manager.getItems()[id].getRevision()
+        expect(revision).not.toEqual(item3.getRevision())
+        expect(revision).not.toEqual(item2.getRevision())
+        expect(revision).toMatch(/^3-/)
+    it 'should notify observers', ->
+        callback = jasmine.createSpy 'onChange'
+        manager.onChange(callback)
+        expect(callback).not.toHaveBeenCalled()
+        item = Item.createNew('testData')
+        manager.saveItem item
+        expect(callback).toHaveBeenCalledWith(item.getID(), item)
