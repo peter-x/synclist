@@ -87,3 +87,34 @@ describe 'LocalStorageDatabase', ->
         expect(callbackdata).toEqual('callbacktestfile')
         database.save 'callbacktestfile2', 'euotu'
         expect(callbackdata).toEqual('callbacktestfile2')
+describe 'Utilities', ->
+    it 'should convert empty arrays to empty sets', ->
+        expect(Utilities.arrayToSet([])).toEqual({})
+    it 'should convert arrays to sets', ->
+        expect(Utilities.arrayToSet(['', '7', '4', '3']))
+                .toEqual({'': 1, '7': 1, '4': 1, '3': 1})
+        expect(Utilities.arrayToSet(['7', '4', '7', '3', '4']))
+                .toEqual({'7': 1, '4': 1, '3': 1})
+        expect(Utilities.arrayToSet(['a', '4', '7', '3', '4']))
+                .toEqual({'a': 1, '7': 1, '4': 1, '3': 1})
+    it 'should convert arrays to sets and back to arrays', ->
+        array = ['1', 'a', '7', 'b']
+        array.sort()
+        expect(Utilities.setToArray(Utilities.arrayToSet(array))).toEqual(array)
+    it 'should convert arrays to sets and back to arrays, removing duplicates', ->
+        array = ['1', 'a', '7', 'b', '7']
+        array.sort()
+        expect(Utilities.setToArray(Utilities.arrayToSet(array))).not.toEqual(array)
+    it 'should sort arrays and remove duplicates', ->
+        array = ['1', '8', '1', '', '', '3']
+        expect(Utilities.sortedArrayWithoutDuplicates(array))
+                .toEqual(['', '1', '3', '8'])
+    it 'should correctly compute the symmetric difference', ->
+        array1 = [    'e', 'g', 'a', 'b']
+        array2 = ['',      'b',      'g', '']
+        expect(Utilities.symmetricSortedArrayDifference(array1, array2))
+            .toEqual(['', 'a', 'e'])
+        expect(Utilities.symmetricSortedArrayDifference([], ['a']))
+            .toEqual(['a'])
+        expect(Utilities.symmetricSortedArrayDifference(['a'], ['a', 'b']))
+            .toEqual(['b'])
