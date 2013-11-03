@@ -62,6 +62,7 @@ describe 'LocalStorageDatabase', ->
     database = new LocalStorageDatabase('synclist_test')
     beforeEach ->
         database.clear()
+        database.clearObservers()
     it 'should list objects', ->
         expect(database.listObjects()).toEqual([])
         database.save 'firstitem', 'data'
@@ -80,13 +81,14 @@ describe 'LocalStorageDatabase', ->
         database.save 'somefile2', data
         expect(database2.load 'somefile2').not.toEqual(data)
     it 'should call change observers', ->
-        callbackdata = null
-        database.onChange (data) -> callbackdata = data
-        expect(callbackdata).toBeNull()
+        callback = jasmine.createSpy 'onChange'
+        database.onChange callback
+        expect(callback).not.toHaveBeenCalled()
         database.save 'callbacktestfile', 'euotu'
-        expect(callbackdata).toEqual('callbacktestfile')
+        expect(callback).toHaveBeenCalledWith('callbacktestfile')
         database.save 'callbacktestfile2', 'euotu'
-        expect(callbackdata).toEqual('callbacktestfile2')
+        expect(callback).toHaveBeenCalledWith('callbacktestfile2')
+
 describe 'Utilities', ->
     it 'should convert empty arrays to empty sets', ->
         expect(Utilities.arrayToSet([])).toEqual({})

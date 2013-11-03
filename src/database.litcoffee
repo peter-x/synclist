@@ -39,7 +39,7 @@ storage.
             for i in [0..ls.length] when @keyIsInContext ls.key(i)
                 @withoutContext ls.key(i)
 
-Register a change listener which is called for each newly created file with its
+Register a change observer which is called for each newly created file with its
 name as argument.
 
         onChange: (fun) ->
@@ -52,6 +52,11 @@ testing.
             ls = @localStorage
             itemsToDelete = (ls.key(i) for i in [0..ls.length] when @keyIsInContext ls.key(i))
             ls.removeItem item for item in itemsToDelete
+
+Remove all change observers.
+
+        clearObservers: ->
+            @changeObservers = []
 
 Private Functions
 -----------------
