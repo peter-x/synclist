@@ -76,6 +76,14 @@ ID
 
         getID: -> @id
 
+Current revision
+
+        getRevision: -> @revision
+
+List of known merged revisions plus the current revision.
+
+        getRevisionsIncludingSelf: -> [@revision].concat(@revisions)
+
 Creation timestamp.
 
         getCreated: -> @creation
@@ -101,6 +109,18 @@ The position inside its category, an arbitrary number.
         getPosition: -> @position
         setPosition: (position) -> @changedCopy( -> @position = position)
 
+Compute the JSON encoding of the item.
+
+        jsonEncode: ->
+            @revisions = Item.sortRevisions(@revisions...)
+            JSON.stringify {
+                revisions: @revisions,
+                creation: @creation, resolution: @resolution,
+                modification: @modification,
+                category: @category, text: @text,
+                position: @position}
+
+
 Comparison Function
 -------------------
 
@@ -108,16 +128,16 @@ Compare two items by position.
 
         @comparator: (a, b) -> a.position - b.position
 
-Compare two items by their revision.
+Compare two items by their revision. Returns `true` if otherItem does not exist.
 
-        @isNewerThan: (otherItem) ->
-            @revisionComparator(@revision, otherItem.revision) > 0
+        isNewerThan: (otherItem) ->
+            not otherItem? or Item.revisionComparator(@revision, otherItem.revision) > 0
 
 Merge function
 --------------
 
 Compute a new `Item` that is a merged version of this and `item`. `base` is the
-latest common ancestor of both items. The new item is immediately saved.
+latest common ancestor of both items.
 
         mergeWith: (item, base) ->
 
@@ -210,7 +230,8 @@ The merge strategy is as follows:
 
             new Item(@id, revision, revisions,
                      creation, resolution, modification,
-                     text, category, position)
+                     category, text, position)
+                .updateRevision()
 
 Determine the latest common ancestor revision of two items. Returns `undefined`
 if they do not share an ancestor. Note that one of the two items itself can be
@@ -224,8 +245,11 @@ an ancestor of the other.
             else
                 len = Math.min(@revisions.length, item.revisions.length)
                 i = 0
-                i += 1 while @revisions[i] is item.revisions[i]
-                @revisions[i - 1]
+                i += 1 while i < len and @revisions[i] is item.revisions[i]
+                if i == 0
+                    null
+                else
+                    @revisions[i - 1]
 
 Private Helper Functions
 ------------------------
@@ -262,17 +286,6 @@ Compute the incremented revision string of this object.
             revisionNumber = +(rev.split '-')[0]
             "#{ revisionNumber + 1 }-#{ Crypto.hash data }"
 
-Compute the JSON encoding of the item.
-
-        jsonEncode: ->
-            @revisions = Item.sortRevisions(@revisions...)
-            JSON.stringify {
-                revisions: @revisions,
-                creation: @creation, resolution: @resolution,
-                modification: @modification,
-                category: @category, text: @text,
-                position: @position}
-
 
 Private and Static Helper Functions
 -----------------------------------
@@ -283,6 +296,9 @@ Create and return a new random id.
             characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
             (characters[Math.floor(Math.random() * characters.length)] for i in [1..length]).join('')
 
+Public and Static Helper Functions
+-----------------------------------
+
 Return sorted list of revisions without duplicates.
 
         @sortRevisions: (revisions...) ->
@@ -291,9 +307,6 @@ Return sorted list of revisions without duplicates.
             revs = (r for r of revs)
             revs.sort(Item.revisionComparator)
             revs
-
-Public and Static Helper Functions
------------------------------------
 
 Comparison function for revision strings: First compare the integer revision
 number and then the string.

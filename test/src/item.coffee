@@ -57,6 +57,81 @@ describe 'Item', ->
         expect(j.getCategory()).toEqual(i.getCategory())
         expect(j.revision).toEqual(i.revision)
         expect(j.revisions).toEqual(i.revisions)
+    it 'should correctly compute the latest common ancestor', ->
+        id = 'abc'
+        itemA = new Item(id, '4-d', ['1-a', '2-b', '3-c'])
+        itemB = new Item(id, '4-d2', ['1-a', '2-b', '3-F'])
+        itemC = new Item(id, '5-d3', ['1-a', '2-b', '3-c', '4-d'])
+        itemD = new Item(id, '3-F', ['1-a', '2-b'])
+        itemE = new Item(id, '3-c', ['1-a', '2-b'])
+        itemF = new Item(id, '5-d3', ['1-a', '2-X', '3-Y', '4-Z'])
+        itemG = new Item(id, '2-d3', ['1-X'])
+        expect(itemA.getLatestCommonAncestor(itemA)).toEqual('4-d')
+        expect(itemA.getLatestCommonAncestor(itemB)).toEqual('2-b')
+        expect(itemA.getLatestCommonAncestor(itemC)).toEqual('4-d')
+        expect(itemA.getLatestCommonAncestor(itemD)).toEqual('2-b')
+        expect(itemA.getLatestCommonAncestor(itemE)).toEqual('3-c')
+        expect(itemA.getLatestCommonAncestor(itemF)).toEqual('1-a')
+        expect(itemA.getLatestCommonAncestor(itemG)).toEqual(null)
+    it 'should correctly merge in case of no conflicts', ->
+        id = 'abc'
+        item = Item.createNew('text', 'category')
+        itemA = item.setText('text2')
+        itemB = item.setCategory('category2')
+        merged = itemA.mergeWith(itemB, item)
+        expect(merged.getText()).toEqual('text2')
+        expect(merged.getCategory()).toEqual('category2')
+        expect(merged.getResolved()).toBeFalsy()
+        revs = merged.getRevisionsIncludingSelf()
+        expect(revs).toContain(item.getRevision())
+        expect(revs).toContain(itemA.getRevision())
+        expect(revs).toContain(itemB.getRevision())
+        expect(revs).toContain(merged.getRevision())
+        expect(revs.length).toEqual(4)
+
+        itemC = item.setResolved()
+        merged = itemC.mergeWith(itemA, item)
+        expect(merged.getText()).toEqual('text2')
+        expect(merged.getCategory()).toEqual('category')
+        expect(merged.getResolved()).toBeTruthy()
+        expect(item.getResolved()).toBeFalsy()
+        expect(itemA.getResolved()).toBeFalsy()
+
+        itemC2 = merged.setText('abc')
+        expect(itemC2.getResolved()).toEqual(merged.getResolved())
+        itemC3 = merged.setCategory('def')
+        merged = itemC2.mergeWith(itemC3, merged)
+        expect(merged.getResolved()).toEqual(itemC2.getResolved())
+
+        itemD = item.setPosition(20)
+        merged = itemA.mergeWith(itemD, item)
+        expect(merged.getPosition()).toEqual(20)
+        itemE = merged.setPosition(21)
+        merged2 = itemE.mergeWith(itemD, itemD)
+        expect(merged2.getPosition()).toEqual(21)
+
+    it 'should correctly merge in case of conflicts', ->
+        item = Item.createNew('text', 'category')
+        itemA = item.setResolved()
+        expect(itemA.getResolved()).toBeGreaterThan(0)
+
+        itemB = item.setResolved()
+        # hack in the resolved value, this invalidates the revision
+        # but should not be a problem
+        itemB.resolved = itemA.resolved + 10
+        merged = itemB.mergeWith(itemA, item)
+        expect(merged.getResolved()).toEqual(itemA.getResolved())
+
+        itemA = item.setText('a smallertext').setCategory('a smallercategory')
+        itemB = item.setText('b largertext').setCategory('b largercategory')
+        merged = itemB.mergeWith(itemA, item)
+        expect(merged.getText()).toEqual('a smallertext, b largertext')
+        expect(merged.getCategory()).toEqual('a smallercategory, b largercategory')
+
+        itemA = item.setPosition(5)
+        itemB = item.setPosition(7)
+        merged = itemA.mergeWith(itemB, item)
+        expect(merged.getPosition()).toEqual(5)
 
 describe 'LocalStorageDatabase', ->
     database = new LocalStorageDatabase('synclist_test')
