@@ -90,7 +90,7 @@ Changes can only be additions, so insert this item.
             @_allItems[filename] = item
             if item.isNewerThan(@_currentItems[id])
                 @_currentItems[id] = item
-                @_callOnChangeObservers(id, item)
+                @_callOnChangeObservers(item)
 
             @_checkForConflicts(id) unless @_doNotMerge
 
@@ -118,9 +118,9 @@ take the most recent revision in this difference.
             baseItem = @_allItems[id + '-' + base]
             @saveItem item.mergeWith(secondItem, baseItem)
 
-        _callOnChangeObservers: (id, item) ->
+        _callOnChangeObservers: (item) ->
             for fun in @_onChangeObservers
-                fun id, item
+                fun item
             null
 
 Get an unsorted list of all known revisions for the specified id.
