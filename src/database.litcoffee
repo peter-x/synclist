@@ -22,7 +22,7 @@ storage.
                       @localStorage = window.localStorage) ->
             @changeObservers = []
             window.addEventListener 'storage', (ev) =>
-                @callChangeObservers(withoutContext(ev.key)) if @keyIsInContext(ev.key)
+                @callChangeObservers(@withoutContext(ev.key)) if @keyIsInContext(ev.key)
 
         save: (filename, plainData) ->
             data = Crypto.encrypt(plainData, @password)
