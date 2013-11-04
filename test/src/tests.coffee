@@ -133,10 +133,10 @@ describe 'Item', ->
         merged = itemA.mergeWith(itemB, item)
         expect(merged.getPosition()).toEqual(5)
 
-describe 'LocalStorageDatabase', ->
-    database = new LocalStorageDatabase('synclist_test')
+describe 'Database with LocalStorageBackend', ->
+    database = new Database(LocalStorageBackend, {context: 'synclist_test'})
     beforeEach ->
-        database.clear()
+        LocalStorageBackend.clearContext('synclist_test')
         database.clearObservers()
     it 'should list objects', ->
         expect(database.listObjects()).toEqual([])
@@ -151,7 +151,8 @@ describe 'LocalStorageDatabase', ->
         database.save 'somefile', data
         expect(database.load 'somefile').toEqual(data)
     it 'should use the password', ->
-        database2 = new LocalStorageDatabase('synclist_test', 'otherpassword')
+        database2 = new Database(LocalStorageBackend, {context: 'synclist_test'}, \
+                                 'otherpassword')
         data = 'asoeuoecug'
         database.save 'somefile2', data
         expect(database2.load 'somefile2').not.toEqual(data)
@@ -197,10 +198,10 @@ describe 'Utilities', ->
             .toEqual(['b'])
 
 describe 'Manager',->
-    database = new LocalStorageDatabase 'synclist_test'
+    database = new Database(LocalStorageBackend, {context: 'synclist_test'})
     manager = null
     beforeEach ->
-        database.clear()
+        LocalStorageBackend.clearContext('synclist_test')
         database.clearObservers()
         manager.clearObservers() if manager?
         manager = new Manager(database)
@@ -233,4 +234,4 @@ describe 'Manager',->
         expect(callback).not.toHaveBeenCalled()
         item = Item.createNew('testData')
         manager.saveItem item
-        expect(callback).toHaveBeenCalledWith(item.getID(), item)
+        expect(callback).toHaveBeenCalledWith(item)
