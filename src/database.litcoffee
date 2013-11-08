@@ -24,11 +24,15 @@ with a specific string, called the context.
 
         list: () ->
             ls = @_localStorage
-            for i in [0..ls.length] when @_keyIsInContext ls.key(i)
-                @_withoutContext ls.key(i)
+            Utilities.deferredPromise(
+                for i in [0..ls.length] when @_keyIsInContext ls.key(i)
+                    @_withoutContext ls.key(i)
+            )
 
         get: (key) ->
-            @_localStorage[@_context + '/' + key]
+            Utilities.deferredPromise(
+                @_localStorage[@_context + '/' + key]
+            )
 
         put: (key, data) ->
             @_localStorage[@_context + '/' + key] = data
@@ -77,7 +81,9 @@ Furthermore, we will also allow some means of authentication for remote storage.
             null
 
         load: (filename) ->
-            Crypto.decrypt(@_backend.get(filename), @_password)
+            @_backend.get(filename)
+                .then((data) =>
+                    Crypto.decrypt(data, @_password))
 
         listObjects: ->
             @_backend.list()

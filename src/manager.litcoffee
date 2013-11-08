@@ -39,9 +39,12 @@ Private attributes are
             @_onChangeObservers = []
 
             @_database.onChange (filename) => @_onChangeInDatabase filename
-            @_onChangeInDatabase filename for filename in @_database.listObjects()
-            @_doNotMerge = false
-            @_doBulkMerge
+            @_database.listObjects()
+                .then((objects) =>
+                    @_onChangeInDatabase filename for filename in objects
+                    @_doNotMerge = false
+                    @_doBulkMerge
+                )
 
 Returns the list of all categories.
 
@@ -85,14 +88,17 @@ Changes can only be additions, so insert this item.
                 console.log("Error: Got change notification for file we " +
                             "already know about: " + filename)
                 return
-            item = Item.createFromJSON(filename, @_database.load filename)
-            id = item.getID()
-            @_allItems[filename] = item
-            if item.isNewerThan(@_currentItems[id])
-                @_currentItems[id] = item
-                @_callOnChangeObservers(item)
+            @_database.load(filename)
+                .then((data) =>
+                    item = Item.createFromJSON(filename, data)
+                    id = item.getID()
+                    @_allItems[filename] = item
+                    if item.isNewerThan(@_currentItems[id])
+                        @_currentItems[id] = item
+                        @_callOnChangeObservers(item)
 
-            @_checkForConflicts(id) unless @_doNotMerge
+                    @_checkForConflicts(id) unless @_doNotMerge
+                )
 
 
 Private Methods
