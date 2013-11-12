@@ -9,6 +9,7 @@ the Manager and the UserInterface and connects them.
 
         constructor: () ->
             @_database = new Database(LocalStorageBackend, {context: 'synclist'})
+            @_settings = new Settings(@_database)
             @_manager = new Manager(@_database)
             @_userInterface = new UserInterface(@_manager)
 

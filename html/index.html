@@ -12,17 +12,74 @@
 <script src="js/utilities.js"></script>
 <script src="js/item.js"></script>
 <script src="js/database.js"></script>
+<script src="js/settings.js"></script>
 <script src="js/manager.js"></script>
 <script src="js/userinterface.js"></script>
 <script src="js/application.js"></script>
 </head>
 <body>
-<div data-role="page">
+<div data-role="page" id="main">
+    <div data-role="header">
+        <h1>Synclist</h1>
+        <a href="#settings" class="ui-btn-right" data-icon="bars">Settings</a>
+    </div>
     <div data-role="content">
         <h2 id="category">Category</h2>
         <input id="categorySelector" />
         <button id="newItem" data-icon="plus">New Item</button>
         <ul id="items" data-role="listview" data-inset="true">
+        </ul>
+    </div>
+</div>
+<div data-role="page" id="settings">
+    <div data-role="header">
+        <a href="#main" data-rel="back" data-icon="arrow-l">Back</a>
+        <h1>Settings</h1>
+    </div>
+    <div data-role="content">
+        <h2>Storages</h2>
+        <a id="addStorage" href="#settingsForStorage"
+           data-icon="plus" data-role="button">Add Storage</a>
+        <ul id="storagelist" data-role="listview" data-inset="true">
+        </ul>
+    </div>
+</div>
+<div data-role="dialog" id="settingsForStorage">
+    <div data-role="header">
+        <a href="#main" data-rel="back" data-icon="arrow-l">Back</a>
+        <h1>Storage Settings</h1>
+    </div>
+    <div data-role="content">
+        <ul data-role="listview" data-inset="true">
+            <li>
+                <input type="hidden" id="storage-index-1"/>
+                <div data-role="fieldcontain">
+                    <label for="type-1">Type</label>
+                    <select name="type-1" id="type-1">
+                        <option value="LocalStorage">LocalStorage</option>
+                        <option value="WebDAV">WebDav</option>
+                    </select>
+                </div>
+                <div data-role="fieldcontain">
+                    <label for="location-1">Location / URL</label>
+                    <input name="location-1" id="location-1">
+                </div>
+                <div data-role="fieldcontain">
+                    <label for="username-1">Username</label>
+                    <input name="username-1" id="username-1">
+                </div>
+                <div data-role="fieldcontain">
+                    <label for="password-1">Password</label>
+                    <input name="password-1" id="password-1">
+                </div>
+                <div data-role="fieldcontain">
+                    <label for="encpassword-1">Encryption Password</label>
+                    <input name="encpassword-1" id="encpassword-1">
+                </div>
+                <div data-role="fieldcontain">
+                    <button id="apply-1">Test and Apply</button>
+                </div>
+            </li>
         </ul>
     </div>
 </div>

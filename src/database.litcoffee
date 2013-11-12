@@ -78,14 +78,29 @@ Furthermore, we will also allow some means of authentication for remote storage.
             @_backend = new Backend(((key) => @_callChangeObservers key), \
                                     backendConfig)
 
-        save: (filename, plainData) ->
-            @_backend.put(filename, Crypto.encrypt(plainData, @_password))
-            null
+        save: (filename, plainData, encryption=true) ->
+            @_backend.put(filename, if encryption
+                        Crypto.encrypt(plainData, @_password)
+                    else
+                        plainData)
+                .then(() => filename)
 
-        load: (filename) ->
+        load: (filename, encryption=true) ->
             @_backend.get(filename)
                 .then((data) =>
-                    Crypto.decrypt(data, @_password))
+                    if encryption
+                        Crypto.decrypt(data, @_password)
+                    else
+                        data)
+
+The next two functions explicitly return the plain data without encrypting /
+decrypting.
+
+        savePlain: (filename, plainData) ->
+            @save(filename, plainData, false)
+
+        loadPlain: (filename) ->
+            @load(filename, false)
 
         listObjects: ->
             @_backend.list()
