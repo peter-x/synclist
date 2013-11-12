@@ -91,6 +91,7 @@ Changes can only be additions, so insert this item.
             @_database.load(filename)
                 .then((data) =>
                     item = Item.createFromJSON(filename, data)
+                    return unless item
                     id = item.getID()
                     @_allItems[filename] = item
                     if item.isNewerThan(@_currentItems[id])
