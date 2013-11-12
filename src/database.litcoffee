@@ -35,12 +35,14 @@ with a specific string, called the context.
             )
 
         put: (key, data) ->
-            @_localStorage[@_context + '/' + key] = data
+            Utilities.deferredPromise(
+                @_localStorage[@_context + '/' + key] = data
 
 LocalStorage does not get a change notification for its own changes, so we call
 the observers manually.
 
-            @_changeNotification(key)
+                @_changeNotification(key)
+            )
 
 The following function is only for testing purposes and should not be
 implemented on other backends.
