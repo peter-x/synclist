@@ -88,6 +88,7 @@ Furthermore, we will also allow some means of authentication for remote storage.
         load: (filename, encryption=true) ->
             @_backend.get(filename)
                 .then((data) =>
+                    return Utilities.rejectedDeferredPromise() unless data?
                     if encryption
                         Crypto.decrypt(data, @_password)
                     else

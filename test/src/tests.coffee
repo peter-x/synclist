@@ -303,3 +303,119 @@ describe 'Manager',->
         item = Item.createNew('testData')
         manager.saveItem item
         expect(callback).toHaveBeenCalledWith(item)
+
+describe 'SyncService', ->
+    settingsChanged = null
+    class MockSettings
+        onChange: (callback) -> settingsChanged = callback
+
+    mockSettings = new MockSettings()
+
+    database1 = new Database(LocalStorageBackend, \
+                             {context: 'synclist_test1'}, \
+                             'password1')
+    database2 = new Database(LocalStorageBackend, \
+                             {context: 'synclist_test2'}, \
+                             'password2')
+    failure = jasmine.createSpy('failure')
+    success = jasmine.createSpy('success')
+    beforeEach ->
+        success.callCount = 0
+        failure.callCount = 0
+        settingsChanged([]) if settingsChanged
+        LocalStorageBackend.clearContext('synclist_test1')
+        LocalStorageBackend.clearContext('synclist_test2')
+        database1.clearObservers()
+        database2.clearObservers()
+
+    it 'should synchronize incrementally', ->
+        syncService = new SyncService(mockSettings, database1)
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'}])
+        database1.save('item_test', 'data')
+        .then(success, failure)
+        database2.load('item_test')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data')
+            success()
+
+        expect(success.callCount).toEqual(2)
+        expect(failure).not.toHaveBeenCalled()
+    it 'should synchronize on startup', ->
+        syncService = new SyncService(mockSettings, database1)
+
+        database1.save('item_test2', 'data2')
+        .then(success, failure)
+        database1.save('item_test3', 'data3')
+        .then(success, failure)
+        database2.save('item_test4', 'data4')
+        .then(success, failure)
+
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'}])
+        database2.load('item_test2')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data2')
+            success()
+
+        database2.load('item_test3')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data3')
+            success()
+
+        database1.load('item_test4')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data4')
+            success()
+
+        expect(success.callCount).toEqual(6)
+        expect(failure).not.toHaveBeenCalled()
+
+    it 'should synchronize three databases', ->
+        database3 = new Database(LocalStorageBackend, \
+                                 {context: 'synclist_test3'}, \
+                                 'password3')
+        syncService = new SyncService(mockSettings, database1)
+
+        database3.save('item_test3', 'data3')
+        .then(success, failure)
+        database3.save('item_test1', 'data1')
+        .then(success, failure)
+        database2.save('item_test2', 'data2')
+        .then(success, failure)
+        database2.save('item_test1', 'data1')
+        .then(success, failure)
+
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'},
+                         {type: 'LocalStorage', \
+                          location: 'synclist_test3', \
+                          encpassword: 'password3'}])
+        database2.load('item_test3')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data3')
+            success()
+
+        database3.load('item_test2')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data2')
+            success()
+
+        database1.load('item_test1')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data1')
+            success()
+
+        expect(success.callCount).toEqual(7)
+        expect(failure).not.toHaveBeenCalled()
+

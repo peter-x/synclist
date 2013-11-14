@@ -32,6 +32,13 @@ Convert a "set" back to an array. Note that this is only guaranteed to work with
             array.sort(comparator)
             array
 
+        sortedArrayDifference: (array1, array2, comparator = undefined) ->
+            set1 = Utilities.arrayToSet(array1)
+            set2 = Utilities.arrayToSet(array2)
+            diff = (x for x of set1 when not set2[x]?)
+            diff.sort(comparator)
+            diff
+
         symmetricSortedArrayDifference: (array1, array2, comparator = undefined) ->
             set1 = Utilities.arrayToSet(array1)
             set2 = Utilities.arrayToSet(array2)
@@ -42,6 +49,9 @@ Convert a "set" back to an array. Note that this is only guaranteed to work with
 
         deferredPromise: (arg) ->
             jQuery.Deferred().resolve(arg).promise()
+
+        rejectedDeferredPromise: (arg) ->
+            jQuery.Deferred().reject(arg).promise()
 
 Export the Interface
 --------------------
