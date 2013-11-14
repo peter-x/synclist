@@ -38,10 +38,13 @@ Private attributes are
 
             @_onChangeObservers = []
 
-            @_database.onChange (filename) => @_onChangeInDatabase filename
+            @_database.onChange (filename) =>
+                @_onChangeInDatabase(filename[5...]) if filename.match /^item_/
+
             @_database.listObjects()
                 .then((objects) =>
-                    @_onChangeInDatabase filename for filename in objects
+                    @_onChangeInDatabase filename[5...] \
+                        for filename in objects when filename.match /^item_/
                     @_doNotMerge = false
                     @_doBulkMerge()
                 )
@@ -63,8 +66,8 @@ Save a new item. Note that this will also trigger the onChange-callback (see
 below). It returns a promise.
 
         saveItem: (item) ->
-            @_database.save item.getID() + '-' + item.getRevision(), item.jsonEncode()
-            item
+            @_database.save('item_' + item.getID() + '-' + item.getRevision(), \
+                            item.jsonEncode())
             .then () -> item
 
 Register a change observer, it is called with id and item object whenever the
@@ -84,17 +87,17 @@ Callbacks
 
 Changes can only be additions, so insert this item.
 
-        _onChangeInDatabase: (filename) ->
-            if filename in @_allItems
+        _onChangeInDatabase: (itemname) ->
+            if itemname in @_allItems
                 console.log("Error: Got change notification for file we " +
-                            "already know about: " + filename)
+                            "already know about: " + itemname)
                 return
-            @_database.load(filename)
+            @_database.load('item_' + itemname)
                 .then((data) =>
-                    item = Item.createFromJSON(filename, data)
+                    item = Item.createFromJSON(itemname, data)
                     return unless item
                     id = item.getID()
-                    @_allItems[filename] = item
+                    @_allItems[itemname] = item
                     if item.isNewerThan(@_currentItems[id])
                         @_currentItems[id] = item
                         @_callOnChangeObservers(item)
