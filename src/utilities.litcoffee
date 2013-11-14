@@ -40,8 +40,8 @@ Convert a "set" back to an array. Note that this is only guaranteed to work with
             diff.sort(comparator)
             diff
 
-        deferredPromise: (args...) ->
-            jQuery.Deferred().resolve(args).promise()
+        deferredPromise: (arg) ->
+            jQuery.Deferred().resolve(arg).promise()
 
 Export the Interface
 --------------------

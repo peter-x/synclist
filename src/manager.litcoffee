@@ -43,7 +43,7 @@ Private attributes are
                 .then((objects) =>
                     @_onChangeInDatabase filename for filename in objects
                     @_doNotMerge = false
-                    @_doBulkMerge
+                    @_doBulkMerge()
                 )
 
 Returns the list of all categories.
@@ -60,11 +60,12 @@ Get the current versions of all items as an id to item mapping.
             @_currentItems
 
 Save a new item. Note that this will also trigger the onChange-callback (see
-below).
+below). It returns a promise.
 
         saveItem: (item) ->
             @_database.save item.getID() + '-' + item.getRevision(), item.jsonEncode()
             item
+            .then () -> item
 
 Register a change observer, it is called with id and item object whenever the
 latest revision of an item changes.
