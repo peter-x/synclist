@@ -11,6 +11,9 @@
     },
     decrypt: function(data, password) {
       return CryptoJS.AES.decrypt(data, password).toString(CryptoJS.enc.Utf8);
+    },
+    utf8ToBase64: function(string) {
+      return CryptoJS.enc.Utf8.parse(string).toString(CryptoJS.enc.Base64);
     }
   };
 

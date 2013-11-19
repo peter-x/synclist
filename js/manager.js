@@ -6,23 +6,28 @@
   Manager = (function() {
 
     function Manager(_database) {
-      var filename, _i, _len, _ref,
-        _this = this;
+      var _this = this;
       this._database = _database;
       this._allItems = {};
       this._currentItems = {};
       this._doNotMerge = true;
       this._onChangeObservers = [];
       this._database.onChange(function(filename) {
-        return _this._onChangeInDatabase(filename);
+        if (filename.match(/^item_/)) {
+          return _this._onChangeInDatabase(filename.slice(5));
+        }
       });
-      _ref = this._database.listObjects();
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        filename = _ref[_i];
-        this._onChangeInDatabase(filename);
-      }
-      this._doNotMerge = false;
-      this._doBulkMerge;
+      this._database.listObjects().then(function(objects) {
+        var filename, _i, _len;
+        for (_i = 0, _len = objects.length; _i < _len; _i++) {
+          filename = objects[_i];
+          if (filename.match(/^item_/)) {
+            _this._onChangeInDatabase(filename.slice(5));
+          }
+        }
+        _this._doNotMerge = false;
+        return _this._doBulkMerge();
+      });
     }
 
     Manager.prototype.getCategories = function() {
@@ -45,8 +50,9 @@
     };
 
     Manager.prototype.saveItem = function(item) {
-      this._database.save(item.getID() + '-' + item.getRevision(), item.jsonEncode());
-      return item;
+      return this._database.save('item_' + item.getID() + '-' + item.getRevision(), item.jsonEncode()).then(function() {
+        return item;
+      });
     };
 
     Manager.prototype.onChange = function(fun) {
@@ -58,22 +64,28 @@
       return this._onChangeObservers = [];
     };
 
-    Manager.prototype._onChangeInDatabase = function(filename) {
-      var id, item;
-      if (__indexOf.call(this._allItems, filename) >= 0) {
-        console.log("Error: Got change notification for file we " + "already know about: " + filename);
+    Manager.prototype._onChangeInDatabase = function(itemname) {
+      var _this = this;
+      if (__indexOf.call(this._allItems, itemname) >= 0) {
+        console.log("Error: Got change notification for file we " + "already know about: " + itemname);
         return;
       }
-      item = Item.createFromJSON(filename, this._database.load(filename));
-      id = item.getID();
-      this._allItems[filename] = item;
-      if (item.isNewerThan(this._currentItems[id])) {
-        this._currentItems[id] = item;
-        this._callOnChangeObservers(item);
-      }
-      if (!this._doNotMerge) {
-        return this._checkForConflicts(id);
-      }
+      return this._database.load('item_' + itemname).then(function(data) {
+        var id, item;
+        item = Item.createFromJSON(itemname, data);
+        if (!item) {
+          return;
+        }
+        id = item.getID();
+        _this._allItems[itemname] = item;
+        if (item.isNewerThan(_this._currentItems[id])) {
+          _this._currentItems[id] = item;
+          _this._callOnChangeObservers(item);
+        }
+        if (!_this._doNotMerge) {
+          return _this._checkForConflicts(id);
+        }
+      });
     };
 
     Manager.prototype._doBulkMerge = function() {

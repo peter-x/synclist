@@ -37,6 +37,26 @@
       array.sort(comparator);
       return array;
     },
+    sortedArrayDifference: function(array1, array2, comparator) {
+      var diff, set1, set2, x;
+      if (comparator == null) {
+        comparator = void 0;
+      }
+      set1 = Utilities.arrayToSet(array1);
+      set2 = Utilities.arrayToSet(array2);
+      diff = (function() {
+        var _results;
+        _results = [];
+        for (x in set1) {
+          if (set2[x] == null) {
+            _results.push(x);
+          }
+        }
+        return _results;
+      })();
+      diff.sort(comparator);
+      return diff;
+    },
     symmetricSortedArrayDifference: function(array1, array2, comparator) {
       var diff, set1, set2, x;
       if (comparator == null) {
@@ -65,6 +85,12 @@
       })());
       diff.sort(comparator);
       return diff;
+    },
+    deferredPromise: function(arg) {
+      return jQuery.Deferred().resolve(arg).promise();
+    },
+    rejectedDeferredPromise: function(arg) {
+      return jQuery.Deferred().reject(arg).promise();
     }
   };
 

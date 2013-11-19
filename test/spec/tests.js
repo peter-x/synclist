@@ -141,29 +141,47 @@
   });
 
   describe('Database with LocalStorageBackend', function() {
-    var database;
+    var database, failure, success;
     database = new Database(LocalStorageBackend, {
       context: 'synclist_test'
     });
+    failure = jasmine.createSpy('failure');
+    success = jasmine.createSpy('success');
     beforeEach(function() {
+      success.callCount = 0;
+      failure.callCount = 0;
       LocalStorageBackend.clearContext('synclist_test');
       return database.clearObservers();
     });
     it('should list objects', function() {
-      var objects;
-      expect(database.listObjects()).toEqual([]);
-      database.save('firstitem', 'data');
-      expect(database.listObjects()).toEqual(['firstitem']);
-      database.save('seconditem', 'data');
-      objects = database.listObjects();
-      objects.sort();
-      return expect(objects).toEqual(['firstitem', 'seconditem']);
+      database.listObjects().fail(failure).then(function(objects) {
+        expect(objects).toEqual([]);
+        return success();
+      });
+      database.save('firstitem', 'data').fail(failure);
+      database.listObjects().fail(failure).then(function(objects) {
+        expect(objects).toEqual(['firstitem']);
+        return success();
+      });
+      database.save('seconditem', 'data').fail(failure);
+      database.listObjects().fail(failure).then(function(objects) {
+        objects.sort();
+        expect(objects).toEqual(['firstitem', 'seconditem']);
+        return success();
+      });
+      expect(success.callCount).toEqual(3);
+      return expect(failure).not.toHaveBeenCalled();
     });
     it('should load the same data it saved', function() {
       var data;
       data = 'abcdef';
-      database.save('somefile', data);
-      return expect(database.load('somefile')).toEqual(data);
+      database.save('somefile', data).fail(failure);
+      database.load('somefile').fail(failure).then(function(returnedData) {
+        expect(returnedData).toEqual(data);
+        return success();
+      });
+      expect(success.callCount).toEqual(1);
+      return expect(failure).not.toHaveBeenCalled();
     });
     it('should use the password', function() {
       var data, database2;
@@ -172,7 +190,12 @@
       }, 'otherpassword');
       data = 'asoeuoecug';
       database.save('somefile2', data);
-      return expect(database2.load('somefile2')).not.toEqual(data);
+      return database2.load('somefile2').fail(function() {
+        return expect(true).toBeFalsy().then(function(returnedData) {
+          expect(true).toBeFalsy();
+          return expect(returnedData).not.toEqual(data);
+        });
+      });
     });
     return it('should call change observers', function() {
       var callback;
@@ -237,12 +260,16 @@
   });
 
   describe('Manager', function() {
-    var database, manager;
+    var database, failure, manager, success;
     database = new Database(LocalStorageBackend, {
       context: 'synclist_test'
     });
     manager = null;
+    failure = jasmine.createSpy('failure');
+    success = jasmine.createSpy('success');
     beforeEach(function() {
+      success.callCount = 0;
+      failure.callCount = 0;
       LocalStorageBackend.clearContext('synclist_test');
       database.clearObservers();
       if (manager != null) {
@@ -251,23 +278,41 @@
       return manager = new Manager(database);
     });
     it('should save an item', function() {
-      var id, item, items;
-      manager.saveItem(Item.createNew('testData'));
-      items = (function() {
-        var _ref, _results;
-        _ref = manager.getItems();
-        _results = [];
-        for (id in _ref) {
-          item = _ref[id];
-          _results.push(item);
-        }
-        return _results;
-      })();
-      return expect(items.length).toEqual(1);
+      manager.saveItem(Item.createNew('testData')).fail(failure).then(function() {
+        var id, item, items;
+        items = (function() {
+          var _ref, _results;
+          _ref = manager.getItems();
+          _results = [];
+          for (id in _ref) {
+            item = _ref[id];
+            _results.push(item);
+          }
+          return _results;
+        })();
+        expect(items.length).toEqual(1);
+        return success();
+      });
+      expect(success.callCount).toEqual(1);
+      return expect(failure).not.toHaveBeenCalled();
     });
     it('should save a new revision', function() {
       var id, item, item2;
-      item = manager.saveItem(Item.createNew('testData'));
+      item = Item.createNew('testData');
+      manager.saveItem(item).fail(failure).then(function() {
+        var id;
+        expect((function() {
+          var _results;
+          _results = [];
+          for (id in manager.getItems()) {
+            _results.push(id);
+          }
+          return _results;
+        })()).toEqual([item.getID()]);
+        return success();
+      });
+      item2 = item.setCategory('newCategory');
+      manager.saveItem(item2).fail(failure).then(success);
       expect((function() {
         var _results;
         _results = [];
@@ -276,28 +321,26 @@
         }
         return _results;
       })()).toEqual([item.getID()]);
-      item2 = manager.saveItem(item.setCategory('newCategory'));
-      expect((function() {
-        var _results;
-        _results = [];
-        for (id in manager.getItems()) {
-          _results.push(id);
-        }
-        return _results;
-      })()).toEqual([item.getID()]);
-      return expect(manager.getItems()[item.getID()].getRevision()).toEqual(item2.getRevision());
+      expect(manager.getItems()[item.getID()].getRevision()).toEqual(item2.getRevision());
+      expect(success.callCount).toEqual(2);
+      return expect(failure).not.toHaveBeenCalled();
     });
     it('should merge conflicts', function() {
       var id, item, item2, item3, revision;
-      item = manager.saveItem(Item.createNew('testData'));
+      item = Item.createNew('testData');
+      manager.saveItem(item).fail(failure).then(success);
       id = item.getID();
-      item2 = manager.saveItem(item.setCategory('newCategory'));
+      item2 = item.setCategory('newCategory');
+      manager.saveItem(item2).fail(failure).then(success);
       expect(manager.getItems()[id].getRevision()).toEqual(item2.getRevision());
-      item3 = manager.saveItem(item.setText('newText'));
+      item3 = item.setText('newText');
+      manager.saveItem(item3).fail(failure).then(success);
       revision = manager.getItems()[id].getRevision();
       expect(revision).not.toEqual(item3.getRevision());
       expect(revision).not.toEqual(item2.getRevision());
-      return expect(revision).toMatch(/^3-/);
+      expect(revision).toMatch(/^3-/);
+      expect(success.callCount).toEqual(3);
+      return expect(failure).not.toHaveBeenCalled();
     });
     return it('should notify observers', function() {
       var callback, item;
@@ -307,6 +350,124 @@
       item = Item.createNew('testData');
       manager.saveItem(item);
       return expect(callback).toHaveBeenCalledWith(item);
+    });
+  });
+
+  describe('SyncService', function() {
+    var MockSettings, database1, database2, failure, mockSettings, settingsChanged, success;
+    settingsChanged = null;
+    MockSettings = (function() {
+
+      function MockSettings() {}
+
+      MockSettings.prototype.onChange = function(callback) {
+        return settingsChanged = callback;
+      };
+
+      return MockSettings;
+
+    })();
+    mockSettings = new MockSettings();
+    database1 = new Database(LocalStorageBackend, {
+      context: 'synclist_test1'
+    }, 'password1');
+    database2 = new Database(LocalStorageBackend, {
+      context: 'synclist_test2'
+    }, 'password2');
+    failure = jasmine.createSpy('failure');
+    success = jasmine.createSpy('success');
+    beforeEach(function() {
+      success.callCount = 0;
+      failure.callCount = 0;
+      if (settingsChanged) {
+        settingsChanged([]);
+      }
+      LocalStorageBackend.clearContext('synclist_test1');
+      LocalStorageBackend.clearContext('synclist_test2');
+      database1.clearObservers();
+      return database2.clearObservers();
+    });
+    it('should synchronize incrementally', function() {
+      var syncService;
+      syncService = new SyncService(mockSettings, database1);
+      settingsChanged([
+        {
+          type: 'LocalStorage',
+          location: 'synclist_test2',
+          encpassword: 'password2'
+        }
+      ]);
+      database1.save('item_test', 'data').then(success, failure);
+      database2.load('item_test').fail(failure).then(function(data) {
+        expect(data).toEqual('data');
+        return success();
+      });
+      expect(success.callCount).toEqual(2);
+      return expect(failure).not.toHaveBeenCalled();
+    });
+    it('should synchronize on startup', function() {
+      var syncService;
+      syncService = new SyncService(mockSettings, database1);
+      database1.save('item_test2', 'data2').then(success, failure);
+      database1.save('item_test3', 'data3').then(success, failure);
+      database2.save('item_test4', 'data4').then(success, failure);
+      settingsChanged([
+        {
+          type: 'LocalStorage',
+          location: 'synclist_test2',
+          encpassword: 'password2'
+        }
+      ]);
+      database2.load('item_test2').fail(failure).then(function(data) {
+        expect(data).toEqual('data2');
+        return success();
+      });
+      database2.load('item_test3').fail(failure).then(function(data) {
+        expect(data).toEqual('data3');
+        return success();
+      });
+      database1.load('item_test4').fail(failure).then(function(data) {
+        expect(data).toEqual('data4');
+        return success();
+      });
+      expect(success.callCount).toEqual(6);
+      return expect(failure).not.toHaveBeenCalled();
+    });
+    return it('should synchronize three databases', function() {
+      var database3, syncService;
+      database3 = new Database(LocalStorageBackend, {
+        context: 'synclist_test3'
+      }, 'password3');
+      syncService = new SyncService(mockSettings, database1);
+      database3.save('item_test3', 'data3').then(success, failure);
+      database3.save('item_test1', 'data1').then(success, failure);
+      database2.save('item_test2', 'data2').then(success, failure);
+      database2.save('item_test1', 'data1').then(success, failure);
+      settingsChanged([
+        {
+          type: 'LocalStorage',
+          location: 'synclist_test2',
+          encpassword: 'password2'
+        }, {
+          type: 'LocalStorage',
+          location: 'synclist_test3',
+          encpassword: 'password3'
+        }
+      ]);
+      database2.load('item_test3').fail(failure).then(function(data) {
+        expect(data).toEqual('data3');
+        return success();
+      });
+      database3.load('item_test2').fail(failure).then(function(data) {
+        expect(data).toEqual('data2');
+        return success();
+      });
+      database1.load('item_test1').fail(failure).then(function(data) {
+        expect(data).toEqual('data1');
+        return success();
+      });
+      expect(success.callCount).toEqual(7);
+      return expect(failure).not.toHaveBeenCalled();
     });
   });
 

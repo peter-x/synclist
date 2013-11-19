@@ -8,7 +8,9 @@
       this._database = new Database(LocalStorageBackend, {
         context: 'synclist'
       });
+      this._settings = new Settings(this._database);
       this._manager = new Manager(this._database);
+      this._syncService = new SyncService(this._settings, this._database);
       this._userInterface = new UserInterface(this._manager);
     }
 
