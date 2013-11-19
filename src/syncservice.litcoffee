@@ -14,6 +14,8 @@ classes
         constructor: (@_settings, @_database) ->
             @_synchronizers = []
             @_settings.onChange (remoteSettings) =>
+                if console?
+                    console.log "Syncservice: Change in settings detected"
                 s.destroy() for s in @_synchronizers
 
                 @_synchronizers = []
@@ -89,6 +91,8 @@ everything and then reacts on changes in both databases.
 
         _transfer: (filename, db1, db2) ->
             return unless @_active and filename.match /^item_/
+            if console?
+                console.log "Syncservice: Transferring " + filename + "."
             db1.load(filename)
             .then (data) =>
                 return unless data and @_active
