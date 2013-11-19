@@ -71,7 +71,7 @@ For each change in the database, recreate the UI.
                 password: $('#password-1').val()
                 encpassword: $('#encpassword-1').val()
             @_database.loadPlain('settings')
-                .then((settings) =>
+                .always((settings) =>
                     try
                         settings = JSON.parse settings
                     catch error
