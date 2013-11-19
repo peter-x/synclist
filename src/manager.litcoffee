@@ -38,10 +38,16 @@ Private attributes are
 
             @_onChangeObservers = []
 
-            @_database.onChange (filename) => @_onChangeInDatabase filename
-            @_onChangeInDatabase filename for filename in @_database.listObjects()
-            @_doNotMerge = false
-            @_doBulkMerge
+            @_database.onChange (filename) =>
+                @_onChangeInDatabase(filename[5...]) if filename.match /^item_/
+
+            @_database.listObjects()
+                .then((objects) =>
+                    @_onChangeInDatabase filename[5...] \
+                        for filename in objects when filename.match /^item_/
+                    @_doNotMerge = false
+                    @_doBulkMerge()
+                )
 
 Returns the list of all categories.
 
@@ -57,11 +63,12 @@ Get the current versions of all items as an id to item mapping.
             @_currentItems
 
 Save a new item. Note that this will also trigger the onChange-callback (see
-below).
+below). It returns a promise.
 
         saveItem: (item) ->
-            @_database.save item.getID() + '-' + item.getRevision(), item.jsonEncode()
-            item
+            @_database.save('item_' + item.getID() + '-' + item.getRevision(), \
+                            item.jsonEncode())
+            .then () -> item
 
 Register a change observer, it is called with id and item object whenever the
 latest revision of an item changes.
@@ -80,19 +87,23 @@ Callbacks
 
 Changes can only be additions, so insert this item.
 
-        _onChangeInDatabase: (filename) ->
-            if filename in @_allItems
+        _onChangeInDatabase: (itemname) ->
+            if itemname in @_allItems
                 console.log("Error: Got change notification for file we " +
-                            "already know about: " + filename)
+                            "already know about: " + itemname)
                 return
-            item = Item.createFromJSON(filename, @_database.load filename)
-            id = item.getID()
-            @_allItems[filename] = item
-            if item.isNewerThan(@_currentItems[id])
-                @_currentItems[id] = item
-                @_callOnChangeObservers(item)
+            @_database.load('item_' + itemname)
+                .then((data) =>
+                    item = Item.createFromJSON(itemname, data)
+                    return unless item
+                    id = item.getID()
+                    @_allItems[itemname] = item
+                    if item.isNewerThan(@_currentItems[id])
+                        @_currentItems[id] = item
+                        @_callOnChangeObservers(item)
 
-            @_checkForConflicts(id) unless @_doNotMerge
+                    @_checkForConflicts(id) unless @_doNotMerge
+                )
 
 
 Private Methods

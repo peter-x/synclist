@@ -135,27 +135,60 @@ describe 'Item', ->
 
 describe 'Database with LocalStorageBackend', ->
     database = new Database(LocalStorageBackend, {context: 'synclist_test'})
+    failure = jasmine.createSpy('failure')
+    success = jasmine.createSpy('success')
     beforeEach ->
+        success.callCount = 0
+        failure.callCount = 0
         LocalStorageBackend.clearContext('synclist_test')
         database.clearObservers()
     it 'should list objects', ->
-        expect(database.listObjects()).toEqual([])
-        database.save 'firstitem', 'data'
-        expect(database.listObjects()).toEqual(['firstitem'])
-        database.save 'seconditem', 'data'
-        objects = database.listObjects()
-        objects.sort()
-        expect(objects).toEqual(['firstitem', 'seconditem'])
+        database.listObjects()
+        .fail(failure)
+        .then (objects) ->
+            expect(objects).toEqual([])
+            success()
+
+        database.save('firstitem', 'data')
+        .fail(failure)
+        database.listObjects()
+        .fail(failure)
+        .then (objects) ->
+            expect(objects).toEqual(['firstitem'])
+            success()
+
+        database.save('seconditem', 'data')
+        .fail(failure)
+        database.listObjects()
+        .fail(failure)
+        .then (objects) ->
+            objects.sort()
+            expect(objects).toEqual(['firstitem', 'seconditem'])
+            success()
+
+        expect(success.callCount).toEqual(3)
+        expect(failure).not.toHaveBeenCalled()
     it 'should load the same data it saved', ->
         data = 'abcdef'
-        database.save 'somefile', data
-        expect(database.load 'somefile').toEqual(data)
+        database.save('somefile', data)
+        .fail(failure)
+        database.load('somefile')
+        .fail(failure)
+        .then (returnedData) ->
+            expect(returnedData).toEqual(data)
+            success()
+        expect(success.callCount).toEqual(1)
+        expect(failure).not.toHaveBeenCalled()
     it 'should use the password', ->
         database2 = new Database(LocalStorageBackend, {context: 'synclist_test'}, \
                                  'otherpassword')
         data = 'asoeuoecug'
         database.save 'somefile2', data
-        expect(database2.load 'somefile2').not.toEqual(data)
+        database2.load('somefile2')
+        .fail -> expect(true).toBeFalsy()
+        .then (returnedData) ->
+            expect(true).toBeFalsy()
+            expect(returnedData).not.toEqual(data)
     it 'should call change observers', ->
         callback = jasmine.createSpy 'onChange'
         database.onChange callback
@@ -200,34 +233,69 @@ describe 'Utilities', ->
 describe 'Manager',->
     database = new Database(LocalStorageBackend, {context: 'synclist_test'})
     manager = null
+    failure = jasmine.createSpy('failure')
+    success = jasmine.createSpy('success')
     beforeEach ->
+        success.callCount = 0
+        failure.callCount = 0
         LocalStorageBackend.clearContext('synclist_test')
         database.clearObservers()
         manager.clearObservers() if manager?
         manager = new Manager(database)
     it 'should save an item', ->
-        manager.saveItem Item.createNew 'testData'
-        items = (item for id, item of manager.getItems())
-        expect(items.length).toEqual 1
+        manager.saveItem(Item.createNew 'testData')
+        .fail(failure)
+        .then ->
+            items = (item for id, item of manager.getItems())
+            expect(items.length).toEqual 1
+            success()
+        expect(success.callCount).toEqual(1)
+        expect(failure).not.toHaveBeenCalled()
     it 'should save a new revision', ->
-        item = manager.saveItem Item.createNew 'testData'
-        expect(id for id of manager.getItems()).toEqual([item.getID()])
+        item = Item.createNew 'testData'
+        manager.saveItem(item)
+        .fail(failure)
+        .then () ->
+            expect(id for id of manager.getItems()).toEqual([item.getID()])
+            success()
 
-        item2 = manager.saveItem item.setCategory 'newCategory'
+        item2 = item.setCategory 'newCategory'
+        manager.saveItem(item2)
+        .fail(failure)
+        .then(success)
+
         expect(id for id of manager.getItems()).toEqual([item.getID()])
-        expect(manager.getItems()[item.getID()].getRevision()).toEqual(item2.getRevision())
+        expect(manager.getItems()[item.getID()].getRevision())
+            .toEqual(item2.getRevision())
+
+        expect(success.callCount).toEqual(2)
+        expect(failure).not.toHaveBeenCalled()
     it 'should merge conflicts', ->
-        item = manager.saveItem Item.createNew 'testData'
+        item = Item.createNew 'testData'
+        manager.saveItem(item)
+        .fail(failure)
+        .then(success)
+
         id = item.getID()
 
-        item2 = manager.saveItem item.setCategory 'newCategory'
+        item2 = item.setCategory 'newCategory'
+        manager.saveItem(item2)
+        .fail(failure)
+        .then(success)
         expect(manager.getItems()[id].getRevision()).toEqual(item2.getRevision())
 
-        item3 = manager.saveItem item.setText 'newText'
+        item3 = item.setText 'newText'
+        manager.saveItem(item3)
+        .fail(failure)
+        .then(success)
+
         revision = manager.getItems()[id].getRevision()
         expect(revision).not.toEqual(item3.getRevision())
         expect(revision).not.toEqual(item2.getRevision())
         expect(revision).toMatch(/^3-/)
+
+        expect(success.callCount).toEqual(3)
+        expect(failure).not.toHaveBeenCalled()
     it 'should notify observers', ->
         callback = jasmine.createSpy 'onChange'
         manager.onChange(callback)
@@ -235,3 +303,119 @@ describe 'Manager',->
         item = Item.createNew('testData')
         manager.saveItem item
         expect(callback).toHaveBeenCalledWith(item)
+
+describe 'SyncService', ->
+    settingsChanged = null
+    class MockSettings
+        onChange: (callback) -> settingsChanged = callback
+
+    mockSettings = new MockSettings()
+
+    database1 = new Database(LocalStorageBackend, \
+                             {context: 'synclist_test1'}, \
+                             'password1')
+    database2 = new Database(LocalStorageBackend, \
+                             {context: 'synclist_test2'}, \
+                             'password2')
+    failure = jasmine.createSpy('failure')
+    success = jasmine.createSpy('success')
+    beforeEach ->
+        success.callCount = 0
+        failure.callCount = 0
+        settingsChanged([]) if settingsChanged
+        LocalStorageBackend.clearContext('synclist_test1')
+        LocalStorageBackend.clearContext('synclist_test2')
+        database1.clearObservers()
+        database2.clearObservers()
+
+    it 'should synchronize incrementally', ->
+        syncService = new SyncService(mockSettings, database1)
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'}])
+        database1.save('item_test', 'data')
+        .then(success, failure)
+        database2.load('item_test')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data')
+            success()
+
+        expect(success.callCount).toEqual(2)
+        expect(failure).not.toHaveBeenCalled()
+    it 'should synchronize on startup', ->
+        syncService = new SyncService(mockSettings, database1)
+
+        database1.save('item_test2', 'data2')
+        .then(success, failure)
+        database1.save('item_test3', 'data3')
+        .then(success, failure)
+        database2.save('item_test4', 'data4')
+        .then(success, failure)
+
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'}])
+        database2.load('item_test2')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data2')
+            success()
+
+        database2.load('item_test3')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data3')
+            success()
+
+        database1.load('item_test4')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data4')
+            success()
+
+        expect(success.callCount).toEqual(6)
+        expect(failure).not.toHaveBeenCalled()
+
+    it 'should synchronize three databases', ->
+        database3 = new Database(LocalStorageBackend, \
+                                 {context: 'synclist_test3'}, \
+                                 'password3')
+        syncService = new SyncService(mockSettings, database1)
+
+        database3.save('item_test3', 'data3')
+        .then(success, failure)
+        database3.save('item_test1', 'data1')
+        .then(success, failure)
+        database2.save('item_test2', 'data2')
+        .then(success, failure)
+        database2.save('item_test1', 'data1')
+        .then(success, failure)
+
+        settingsChanged([{type: 'LocalStorage', \
+                          location: 'synclist_test2', \
+                          encpassword: 'password2'},
+                         {type: 'LocalStorage', \
+                          location: 'synclist_test3', \
+                          encpassword: 'password3'}])
+        database2.load('item_test3')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data3')
+            success()
+
+        database3.load('item_test2')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data2')
+            success()
+
+        database1.load('item_test1')
+        .fail(failure)
+        .then (data) ->
+            expect(data).toEqual('data1')
+            success()
+
+        expect(success.callCount).toEqual(7)
+        expect(failure).not.toHaveBeenCalled()
+
