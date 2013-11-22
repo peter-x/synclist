@@ -92,7 +92,10 @@ The resolution ('checked' state) and its timestamp.
 
         isResolved: -> @resolution > 0
         getResolved: -> @resolution
-        setResolved: -> @changedCopy( -> @resolution = (+new Date) / 1000.0)
+        setResolved: (resolved = true) ->
+            @changedCopy( -> @resolution = \
+                if resolved then (+new Date) / 1000.0 \
+                else 0)
 
 The Category, an arbitrary string.
 
