@@ -91,9 +91,12 @@
       return this.resolution;
     };
 
-    Item.prototype.setResolved = function() {
+    Item.prototype.setResolved = function(resolved) {
+      if (resolved == null) {
+        resolved = true;
+      }
       return this.changedCopy(function() {
-        return this.resolution = (+(new Date)) / 1000.0;
+        return this.resolution = resolved ? (+(new Date)) / 1000.0 : 0;
       });
     };
 
