@@ -20,7 +20,7 @@ Apart from the constructor, it has no public methods.
 #                $('#items').sortable()._mouseMove(ev))
 #            $('#items').bind('touchend', (ev) ->
 #                $('#items').sortable()._mouseEnd(ev))
-            @_manager.onChange (item) => @_onItemChanged item
+            @_manager.observe (item) => @_onItemChanged item
 
 Private Methods
 ---------------

@@ -13,7 +13,7 @@ classes
 
         constructor: (@_settings, @_database) ->
             @_synchronizers = []
-            @_settings.onChange (remoteSettings) =>
+            @_settings.observe (remoteSettings) =>
                 if console?
                     console.log "Syncservice: Change in settings detected"
                 s.destroy() for s in @_synchronizers
@@ -51,13 +51,13 @@ everything and then reacts on changes in both databases.
         constructor: (@_sourceDB, @_targetDB) ->
             @_changesToIgnore = {}
             @_active = true # workaround until we can unregister observers
-            @_sourceDB.onChange (filename) =>
+            @_sourceDB.observe (filename) =>
                 if @_changesToIgnore[filename]?
                     delete @_changesToIgnore[filename]
                 else
                     @_changesToIgnore[filename] = 1
                     @_transferTo filename
-            @_targetDB.onChange (filename) =>
+            @_targetDB.observe (filename) =>
                 if @_changesToIgnore[filename]?
                     delete @_changesToIgnore[filename]
                 else

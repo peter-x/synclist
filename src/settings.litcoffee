@@ -2,25 +2,24 @@ Settings
 ========
 
 User interface class to administer all settings, mostly to configure storage
-backends.
+backends. Provides observer mechanism where each observer is guaranteed to
+receive at least one change notification. The arguments to the callback is a
+list of backends with type, location (url), username, password and encryption
+password.
+
 
     class Settings
         constructor: (@_database) ->
             @_storages = []
-            @_onChangeListeners = []
             $('#addStorage').click(() => @_populateSettingsForStorageDialog(-1))
             $('#apply-1').click(() => @_applyStorageSettings())
-            @_database.onChange (item) =>
+            @_database.observe (item) =>
                 @_settingsChanged() if item == "settings"
             @_settingsChanged()
 
-Register as observer for changes to the list of configured backends. Every
-observer is guaranteed to receive at least one change notification. The
-arguments to the callback is a list of backends with type, location (url),
-username, password and encryption password.
+The following function will be extended by `Observer`.
 
-        onChange: (callback) ->
-            @_onChangeListeners.push(callback)
+        observe: (callback) ->
             callback(@_storages)
 
 Private Methods
@@ -35,7 +34,7 @@ For each change in the database, recreate the UI.
                         @_storages = JSON.parse data
                     catch error
                         @_storages = []
-                    @_callOnChangeListeners()
+                    @_callObservers()
                     @_updateUI())
 
         _updateUI: () ->
@@ -81,9 +80,7 @@ For each change in the database, recreate the UI.
                     @_database.savePlain('settings', JSON.stringify settings)
                         .then(() => $('#settingsForStorage').dialog('close')))
 
-        _callOnChangeListeners: ->
-            for callback in @_onChangeListeners
-                callback(@_storages)
+    Observer(Settings)
 
 Export the Interface
 --------------------

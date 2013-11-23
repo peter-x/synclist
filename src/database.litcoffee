@@ -129,12 +129,13 @@ The database takes care of encrypting and decrypting data and uses one of the
 various backends to actually store the data. For now, we use some arbitrary
 constant password, the user will of course be able to change it later.
 Furthermore, we will also allow some means of authentication for remote storage.
+The database provides a change observer mechanism via the methods `observe` and
+`unobserve`.
 
     class Database
         constructor: (Backend, backendConfig,
                       @_password = 'simple constant password') ->
-            @_changeObservers = []
-            @_backend = new Backend(((key) => @_callChangeObservers key), \
+            @_backend = new Backend(((key) => @_callObservers key), \
                                     backendConfig)
 
         save: (filename, plainData, encryption=true) ->
@@ -165,24 +166,9 @@ decrypting.
         listObjects: ->
             @_backend.list()
 
-Register a change observer which is called for each newly created file with its
-name as argument.
+Add the observer mechanism to the class.
 
-        onChange: (fun) ->
-            @_changeObservers.push fun
-
-Remove all change observers.
-
-        clearObservers: ->
-            @_changeObservers = []
-
-Private Functions
------------------
-
-        _callChangeObservers: (name) ->
-            observer name for observer in @_changeObservers
-            null
-
+    Observer(Database)
 
 Export the Interface
 --------------------
