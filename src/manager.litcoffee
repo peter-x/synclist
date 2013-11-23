@@ -114,13 +114,13 @@ Check the whole database for conflicts and merge them.
         _doBulkMerge: () ->
             @_checkForConflicts(id) for id of @_currentItems
 
-Check if something needs to be merged: If there is a difference in the known
-revisions for the specidied id and the revisions merged by the most recent item,
-take the most recent revision in this difference.
+Check if something needs to be merged: If there is a revision in the database
+that is not in the known revisions for the specidied id, take the most recent
+such revision.
 
         _checkForConflicts: (id) ->
             item = @_currentItems[id]
-            diffs = Utilities.symmetricSortedArrayDifference(
+            diffs = Utilities.sortedArrayDifference(
                         @_revisionsForID(id), item.getRevisionsIncludingSelf())
             return null if diffs.length == 0
             revisionToMerge = diffs.pop()
