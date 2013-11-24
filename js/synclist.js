@@ -1134,7 +1134,9 @@
       secondItem = this._allItems[id + '-' + revisionToMerge];
       base = item.getLatestCommonAncestor(secondItem);
       baseItem = this._allItems[id + '-' + base];
-      return this.saveItem(item.mergeWith(secondItem, baseItem));
+      if (baseItem != null) {
+        return this.saveItem(item.mergeWith(secondItem, baseItem));
+      }
     };
 
     Manager.prototype._revisionsForID = function(id) {

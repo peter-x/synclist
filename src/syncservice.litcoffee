@@ -49,8 +49,8 @@ synchronization helpers (see below) in the obvious way.
 Request all synchronizers to do a full synchronization, which means that a list
 of all files on all databases is requested and differences in these lists are
 removed by transferring the files. Returns a deferred object which combines all
-results, i.e. it is successfull if and only if all synchronizations were
-successfull.
+results, i.e. it is successful if and only if all synchronizations were
+successful.
 
         fullSync: () ->
             s.fullSync() for s in @_synchronizers
