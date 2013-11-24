@@ -12,7 +12,7 @@ the Manager and the UserInterface and connects them.
             @_settings = new Settings(@_database)
             @_manager = new Manager(@_database)
             @_syncService = new SyncService(@_settings, @_database)
-            @_userInterface = new UserInterface(@_manager)
+            @_userInterface = new UserInterface(@_manager, @_syncService)
 
 Export the Interface and create the Singleton
 ---------------------------------------------
