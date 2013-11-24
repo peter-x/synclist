@@ -74,7 +74,7 @@ Callbacks
 Changes can only be additions, so insert this item.
 
         _onChangeInDatabase: (itemname) ->
-            if itemname in @_allItems
+            if @_allItems[itemname]?
                 console.log("Error: Got change notification for file we " +
                             "already know about: " + itemname)
                 return
@@ -113,8 +113,17 @@ such revision.
             secondItem = @_allItems[id + '-' + revisionToMerge]
             base = item.getLatestCommonAncestor(secondItem)
             baseItem = @_allItems[id + '-' + base]
-            @saveItem item.mergeWith(secondItem, baseItem) if baseItem?
-            # TODO: more intelligent error handling if base is not readable
+            console.log("Conflict for #{ id }.")
+            console.log("Merging #{ item.getRevision() } " + \
+                        "with #{ revisionToMerge } " + \
+                        "using base #{ base } ")
+            if baseItem?
+                merged = item.mergeWith(secondItem, baseItem)
+                console.log("Created #{ merged.getRevision() }")
+                @saveItem merged
+            else
+                console.log("Unable to retrieve base revision object.")
+                # TODO: more intelligent error handling if base is not readable
 
 Get an unsorted list of all known revisions for the specified id.
 
