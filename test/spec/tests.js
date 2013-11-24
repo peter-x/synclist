@@ -199,8 +199,8 @@
     });
     return it('should call change observers', function() {
       var callback;
-      callback = jasmine.createSpy('onChange');
-      database.onChange(callback);
+      callback = jasmine.createSpy('observe');
+      database.observe(callback);
       expect(callback).not.toHaveBeenCalled();
       database.save('callbacktestfile', 'euotu');
       expect(callback).toHaveBeenCalledWith('callbacktestfile');
@@ -344,8 +344,8 @@
     });
     return it('should notify observers', function() {
       var callback, item;
-      callback = jasmine.createSpy('onChange');
-      manager.onChange(callback);
+      callback = jasmine.createSpy('observe');
+      manager.observe(callback);
       expect(callback).not.toHaveBeenCalled();
       item = Item.createNew('testData');
       manager.saveItem(item);
@@ -360,7 +360,7 @@
 
       function MockSettings() {}
 
-      MockSettings.prototype.onChange = function(callback) {
+      MockSettings.prototype.observe = function(callback) {
         return settingsChanged = callback;
       };
 
