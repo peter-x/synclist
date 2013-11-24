@@ -6,7 +6,7 @@ observer of the manager and actually changes the items on the user's request.
 Apart from the constructor, it has no public methods.
 
     class UserInterface
-        constructor: (@_manager) ->
+        constructor: (@_manager, @_syncService) ->
             @_currentlyEditingItems = {}
             @_initializeUI()
             @_suppressRefreshCalls = true
@@ -20,7 +20,15 @@ Apart from the constructor, it has no public methods.
 #                $('#items').sortable()._mouseMove(ev))
 #            $('#items').bind('touchend', (ev) ->
 #                $('#items').sortable()._mouseEnd(ev))
-            @_manager.onChange (item) => @_onItemChanged item
+            @_manager.observe (item) => @_onItemChanged item
+
+            @_syncService.observe (state, errorMessage) =>
+                console.log(errorMessage)
+                button = $('#syncState')
+                button.buttonMarkup({icon: switch state
+                    when 'error' then 'delete'
+                    when 'waiting' then 'check'
+                    else 'throbber'})
 
 Private Methods
 ---------------
@@ -34,6 +42,8 @@ Find all relevant html elements and register callbacks.
                 text = window.prompt("Text")
                 if text?
                     @_manager.saveItem Item.createNew(text, @_currentCategory())
+            $('#syncState').click () =>
+                @_syncService.fullSync()
 
         _currentCategory: () ->
             '' #$('#categorySelector').val()

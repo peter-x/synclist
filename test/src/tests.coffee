@@ -190,8 +190,8 @@ describe 'Database with LocalStorageBackend', ->
             expect(true).toBeFalsy()
             expect(returnedData).not.toEqual(data)
     it 'should call change observers', ->
-        callback = jasmine.createSpy 'onChange'
-        database.onChange callback
+        callback = jasmine.createSpy 'observe'
+        database.observe callback
         expect(callback).not.toHaveBeenCalled()
         database.save 'callbacktestfile', 'euotu'
         expect(callback).toHaveBeenCalledWith('callbacktestfile')
@@ -297,8 +297,8 @@ describe 'Manager',->
         expect(success.callCount).toEqual(3)
         expect(failure).not.toHaveBeenCalled()
     it 'should notify observers', ->
-        callback = jasmine.createSpy 'onChange'
-        manager.onChange(callback)
+        callback = jasmine.createSpy 'observe'
+        manager.observe(callback)
         expect(callback).not.toHaveBeenCalled()
         item = Item.createNew('testData')
         manager.saveItem item
@@ -307,7 +307,7 @@ describe 'Manager',->
 describe 'SyncService', ->
     settingsChanged = null
     class MockSettings
-        onChange: (callback) -> settingsChanged = callback
+        observe: (callback) -> settingsChanged = callback
 
     mockSettings = new MockSettings()
 
