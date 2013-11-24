@@ -113,7 +113,8 @@ such revision.
             secondItem = @_allItems[id + '-' + revisionToMerge]
             base = item.getLatestCommonAncestor(secondItem)
             baseItem = @_allItems[id + '-' + base]
-            @saveItem item.mergeWith(secondItem, baseItem)
+            @saveItem item.mergeWith(secondItem, baseItem) if baseItem?
+            # TODO: more intelligent error handling if base is not readable
 
 Get an unsorted list of all known revisions for the specified id.
 
