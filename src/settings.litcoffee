@@ -34,7 +34,7 @@ For each change in the database, recreate the UI.
                         @_storages = JSON.parse data
                     catch error
                         @_storages = []
-                    @_callObservers()
+                    @_callObservers(@_storages)
                     @_updateUI())
 
         _updateUI: () ->
