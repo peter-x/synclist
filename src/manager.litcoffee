@@ -18,7 +18,7 @@ recent items.
 Public Interface
 ----------------
 
-        constructor: (@_database) ->
+        constructor: (@_database, @_syncService) ->
 
 Private attributes are
 
@@ -32,9 +32,20 @@ Private attributes are
 
             @_currentItems = {}
 
- - a flag to indicate that merging should be suppressed (until further notice)
+ - two flag to indicate that merging should be suppressed (until further notice).
+   This can have two reasons: We are currently reading in the database or we are
+   currently receiving updates via the synchronization service.
+   TODO: Can this be unified, i.e. can we read in the items on startup via the
+   synchronization service? One solution would be to use localStorage as a
+   remote database and use the manager as the central database.
 
-            @_doNotMerge = true
+            @_synchronizing = true
+            @_initializing = true
+
+ - a list of IDs to check for conflicts after the above mentioned suppression is
+   resolved
+
+            @_itemsToCheckForConflicts = {}
 
             @_database.observe (filename) =>
                 @_onChangeInDatabase(filename[5...]) if filename.match /^item_/
@@ -43,9 +54,17 @@ Private attributes are
                 .then((objects) =>
                     @_onChangeInDatabase filename[5...] \
                         for filename in objects when filename.match /^item_/
-                    @_doNotMerge = false
-                    @_doBulkMerge()
+                    @_initializing = false
+                    @_checkAllForConflicts()
                 )
+
+We wait with merging until the synchronization service in in state of "waiting",
+i.e. when we assume that we transferred all files (including merged revisions)
+from and to the databases.
+
+            @_syncService.observe (state, errorMessage) =>
+                @_synchronizing = state == 'synchronizing'
+                @_checkAllForConflicts()
 
 Returns the list of all categories.
 
@@ -88,23 +107,30 @@ Changes can only be additions, so insert this item.
                         @_currentItems[id] = item
                         @_callObservers(item)
 
-                    @_checkForConflicts(id) unless @_doNotMerge
+                    @_checkForConflicts(id)
                 )
 
 
 Private Methods
 ---------------
 
-Check the whole database for conflicts and merge them.
+During update periods, merging is suppressed and items to check for conflicts
+are added to a queue. This function goes through this queue after such a period.
 
-        _doBulkMerge: () ->
-            @_checkForConflicts(id) for id of @_currentItems
+        _checkAllForConflicts: () ->
+            return if @_initializing or @_synchronizing
+            for id of @_itemsToCheckForConflicts
+                delete @_itemsToCheckForConflicts[id]
+                @_checkForConflicts id
 
 Check if something needs to be merged: If there is a revision in the database
 that is not in the known revisions for the specidied id, take the most recent
 such revision.
 
         _checkForConflicts: (id) ->
+            if @_initializing or @_synchronizing
+                @_itemsToCheckForConflicts[id] = true
+                return
             item = @_currentItems[id]
             diffs = Utilities.sortedArrayDifference(
                         @_revisionsForID(id), item.getRevisionsIncludingSelf())
