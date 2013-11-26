@@ -1,3 +1,54 @@
 .ui-icon-throbber {
     background-image: url("../throbber.gif");
 }
+
+.insetremover {
+    margin: -15px;
+    margin-top: 26px;
+}
+
+#items {
+    width: 100%;
+    font-weight: 700;
+    text-shadow: 0 1px 0 #fff;
+}
+
+.item {
+    z-index: 1;
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #ccc;
+    border-bottom: 0px;
+    background: #eee;
+}
+
+.item-buttons-left {
+    width: 34px;
+    padding: 6px;
+    padding-left: 12px;
+}
+
+.item-center {
+    vertical-align: middle;
+    overflow: hidden;
+}
+
+.item-text {
+    height: 1.2em;
+    width: 10px;
+    overflow: overflow;
+    white-space: nowrap;
+}
+
+.item-buttons-menu {
+    display: none;
+    white-space: nowrap;
+    width: 1px;
+}
+
+.item-buttons-right {
+    width: 34px;
+    padding: 6px;
+    padding-right: 12px;
+}
+

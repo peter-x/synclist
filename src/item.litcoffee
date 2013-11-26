@@ -127,9 +127,18 @@ Compute the JSON encoding of the item.
 Comparison Function
 -------------------
 
-Compare two items by position.
+Compare two items by position (and then by id if they are equal).
 
-        @comparator: (a, b) -> a.position - b.position
+        @comparator: (a, b) ->
+            if a.position != b.position
+                a.position - b.position
+            else if a.id > b.id
+                1
+            else if a.id < b.id
+                -1
+            else
+                0
+
 
 Compare two items by their revision. Returns `true` if otherItem does not exist.
 
