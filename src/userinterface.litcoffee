@@ -10,6 +10,7 @@ Apart from the constructor, it has no public methods.
             @_currentlyEditingItems = {}
             @_currentlyDraggingItem = undefined
             @_dragStart = [0, 0]
+            @_showResolved = false
             @_initializeUI()
             @_suppressRefreshCalls = true
             @_onItemChanged item for id, item of @_manager.getItems()
@@ -33,7 +34,12 @@ Find all relevant html elements and register callbacks.
             $(document).bind('touchmove mousemove', (event) => @_moveDrag(event))
             $(document).bind('touchend mouseup', (ev) => @_endDrag(ev))
             #$('#categorySelector').change () =>
-            #    @_showHideBasedOnCategory($('.item'))
+            #    @_updateItemVisibility()
+            $('#showResolved').click () =>
+                @_showResolved = not @_showResolved
+                $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
+                @_updateItemVisibility()
+
             $('#newItem').click () =>
                 text = window.prompt("Text")
                 if text?
@@ -48,9 +54,12 @@ Find all relevant html elements and register callbacks.
         _currentCategory: () ->
             '' #$('#categorySelector').val()
 
-        _showHideBasedOnCategory: (items,
-                                   category = @_currentCategory()) ->
-            showCondition = (e) -> category == '' or $(e).data('category') == category
+        _updateItemVisibility: (items = $('.item'),
+                                category = @_currentCategory()) ->
+            showCondition = (e) =>
+                item = @_itemFromElement $ e
+                (@_showResolved or not item.isResolved()) and \
+                    (category == '' or item.getCategory() == category)
             items.filter( -> not showCondition(@)).hide()
             items.filter( -> showCondition(@)).show()
 
@@ -70,7 +79,7 @@ after they went through the database.
                 @_itemResolutionChanged(id, $('.done', element).val()))
             $('.item-text', element).text(item.getText())
             element.data('category', item.getCategory())
-            @_showHideBasedOnCategory(element)
+            @_updateItemVisibility(element)
             @_positionItem(element, item)
 
         _itemFromElement: (element) ->
