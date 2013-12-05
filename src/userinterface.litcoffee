@@ -10,6 +10,9 @@ Apart from the constructor, it has no public methods.
             @_currentlyEditingItems = {}
             @_currentlyDraggingItem = undefined
             @_dragStart = [0, 0]
+            @_dragCurrent = [0, 0]
+            @_showResolved = false
+            @_itemHeight = 48
             @_initializeUI()
             @_suppressRefreshCalls = true
             @_onItemChanged item for id, item of @_manager.getItems()
@@ -31,9 +34,14 @@ Find all relevant html elements and register callbacks.
 
         _initializeUI: () ->
             $(document).bind('touchmove mousemove', (event) => @_moveDrag(event))
-            $(document).bind('touchend mouseup', (ev) => @_endDrag(ev))
+            $(document).bind('touchend touchcancel mouseup', (ev) => @_endDrag(ev))
             #$('#categorySelector').change () =>
-            #    @_showHideBasedOnCategory($('.item'))
+            #    @_updateItemVisibility()
+            $('#showResolved').click () =>
+                @_showResolved = not @_showResolved
+                $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
+                @_updateItemVisibility()
+
             $('#newItem').click () =>
                 text = window.prompt("Text")
                 if text?
@@ -48,9 +56,12 @@ Find all relevant html elements and register callbacks.
         _currentCategory: () ->
             '' #$('#categorySelector').val()
 
-        _showHideBasedOnCategory: (items,
-                                   category = @_currentCategory()) ->
-            showCondition = (e) -> category == '' or $(e).data('category') == category
+        _updateItemVisibility: (items = $('.item'),
+                                category = @_currentCategory()) ->
+            showCondition = (e) =>
+                item = @_itemFromElement $ e
+                (@_showResolved or not item.isResolved()) and \
+                    (category == '' or item.getCategory() == category)
             items.filter( -> not showCondition(@)).hide()
             items.filter( -> showCondition(@)).show()
 
@@ -70,7 +81,7 @@ after they went through the database.
                 @_itemResolutionChanged(id, $('.done', element).val()))
             $('.item-text', element).text(item.getText())
             element.data('category', item.getCategory())
-            @_showHideBasedOnCategory(element)
+            @_updateItemVisibility(element)
             @_positionItem(element, item)
 
         _itemFromElement: (element) ->
@@ -216,11 +227,12 @@ immediate feedback.
 The functions handling drag and drop of items in the list.
 
         _startDrag: (id, event) ->
+            return if @_currentlyDraggingItem
             event.preventDefault()
             @_currentlyDraggingItem = id
 
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
-            @_dragStart = [pos.pageX, pos.pageY]
+            @_dragCurrent = @_dragStart = [pos.pageX, pos.pageY]
             $('#item_' + id).css(
                 zIndex: '13'
                 position: 'relative'
@@ -230,28 +242,45 @@ The functions handling drag and drop of items in the list.
         _moveDrag: (event) ->
             return unless @_currentlyDraggingItem
             event.preventDefault()
-            itemHeight = 48
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
-            relYPos = pos.pageY - @_dragStart[1]
+            @_dragCurrent = [pos.pageX, pos.pageY]
             el = $('#item_' + @_currentlyDraggingItem)
 
-            # TODO optimization: move only once if relYPos is large
-            while relYPos > itemHeight / 2.0 and el.next().length > 0
-                el.insertAfter(el.next())
-                relYPos -= itemHeight
-                @_dragStart[1] += itemHeight
-            while relYPos < -itemHeight / 2.0 and el.prev().length > 0
-                el.insertBefore(el.prev())
-                relYPos += itemHeight
-                @_dragStart[1] -= itemHeight
-            el.css(
-                 left: 0
-                 top:  relYPos)
+            move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
+            if move != 0
+                window.setTimeout((=> @_repositionItem()), 1)
+
+            el[0].style.left = '0px'
+            el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
+
+        _repositionItem: () ->
+            return unless @_currentlyDraggingItem
+
+            move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
+            return if move == 0
+
+            el = $('#item_' + @_currentlyDraggingItem)
+            siblingIndex = 0
+            sibling = el
+            while Math.abs(siblingIndex) < Math.abs(move)
+                tentativeSibling = if move > 0
+                        sibling.nextAll(':visible:first')
+                    else
+                        sibling.prevAll(':visible:first')
+                break if tentativeSibling.length == 0
+                sibling = tentativeSibling
+                siblingIndex += if move > 0 then 1 else -1
+            if siblingIndex > 0 then el.insertAfter(sibling)
+            if siblingIndex < 0 then el.insertBefore(sibling)
+            @_dragStart[1] += @_itemHeight * siblingIndex
+            el[0].style.left = '0px'
+            el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
         _endDrag: (event) ->
             id = @_currentlyDraggingItem
             return unless id?
             event.preventDefault()
+            @_repositionItem()
             @_currentlyDraggingItem = undefined
             el = $('#item_' + id).css(
                 position: ''

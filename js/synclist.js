@@ -1201,6 +1201,9 @@
       this._currentlyEditingItems = {};
       this._currentlyDraggingItem = void 0;
       this._dragStart = [0, 0];
+      this._dragCurrent = [0, 0];
+      this._showResolved = false;
+      this._itemHeight = 48;
       this._initializeUI();
       this._suppressRefreshCalls = true;
       _ref = this._manager.getItems();
@@ -1236,8 +1239,15 @@
       $(document).bind('touchmove mousemove', function(event) {
         return _this._moveDrag(event);
       });
-      $(document).bind('touchend mouseup', function(ev) {
+      $(document).bind('touchend touchcancel mouseup', function(ev) {
         return _this._endDrag(ev);
+      });
+      $('#showResolved').click(function() {
+        _this._showResolved = !_this._showResolved;
+        $('#showResolved').button({
+          theme: _this._showResolved ? 'b' : 'c'
+        });
+        return _this._updateItemVisibility();
       });
       $('#newItem').click(function() {
         var firstItem, pos, text;
@@ -1257,13 +1267,19 @@
       return '';
     };
 
-    UserInterface.prototype._showHideBasedOnCategory = function(items, category) {
-      var showCondition;
+    UserInterface.prototype._updateItemVisibility = function(items, category) {
+      var showCondition,
+        _this = this;
+      if (items == null) {
+        items = $('.item');
+      }
       if (category == null) {
         category = this._currentCategory();
       }
       showCondition = function(e) {
-        return category === '' || $(e).data('category') === category;
+        var item;
+        item = _this._itemFromElement($(e));
+        return (_this._showResolved || !item.isResolved()) && (category === '' || item.getCategory() === category);
       };
       items.filter(function() {
         return !showCondition(this);
@@ -1292,7 +1308,7 @@
       });
       $('.item-text', element).text(item.getText());
       element.data('category', item.getCategory());
-      this._showHideBasedOnCategory(element);
+      this._updateItemVisibility(element);
       return this._positionItem(element, item);
     };
 
@@ -1422,10 +1438,13 @@
 
     UserInterface.prototype._startDrag = function(id, event) {
       var pos, _ref;
+      if (this._currentlyDraggingItem) {
+        return;
+      }
       event.preventDefault();
       this._currentlyDraggingItem = id;
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
-      this._dragStart = [pos.pageX, pos.pageY];
+      this._dragCurrent = this._dragStart = [pos.pageX, pos.pageY];
       return $('#item_' + id).css({
         zIndex: '13',
         position: 'relative',
@@ -1435,29 +1454,54 @@
     };
 
     UserInterface.prototype._moveDrag = function(event) {
-      var el, itemHeight, pos, relYPos, _ref;
+      var el, move, pos, _ref,
+        _this = this;
       if (!this._currentlyDraggingItem) {
         return;
       }
       event.preventDefault();
-      itemHeight = 48;
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
-      relYPos = pos.pageY - this._dragStart[1];
+      this._dragCurrent = [pos.pageX, pos.pageY];
       el = $('#item_' + this._currentlyDraggingItem);
-      while (relYPos > itemHeight / 2.0 && el.next().length > 0) {
-        el.insertAfter(el.next());
-        relYPos -= itemHeight;
-        this._dragStart[1] += itemHeight;
+      move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
+      if (move !== 0) {
+        window.setTimeout((function() {
+          return _this._repositionItem();
+        }), 1);
       }
-      while (relYPos < -itemHeight / 2.0 && el.prev().length > 0) {
-        el.insertBefore(el.prev());
-        relYPos += itemHeight;
-        this._dragStart[1] -= itemHeight;
+      el[0].style.left = '0px';
+      return el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
+    };
+
+    UserInterface.prototype._repositionItem = function() {
+      var el, move, sibling, siblingIndex, tentativeSibling;
+      if (!this._currentlyDraggingItem) {
+        return;
       }
-      return el.css({
-        left: 0,
-        top: relYPos
-      });
+      move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
+      if (move === 0) {
+        return;
+      }
+      el = $('#item_' + this._currentlyDraggingItem);
+      siblingIndex = 0;
+      sibling = el;
+      while (Math.abs(siblingIndex) < Math.abs(move)) {
+        tentativeSibling = move > 0 ? sibling.nextAll(':visible:first') : sibling.prevAll(':visible:first');
+        if (tentativeSibling.length === 0) {
+          break;
+        }
+        sibling = tentativeSibling;
+        siblingIndex += move > 0 ? 1 : -1;
+      }
+      if (siblingIndex > 0) {
+        el.insertAfter(sibling);
+      }
+      if (siblingIndex < 0) {
+        el.insertBefore(sibling);
+      }
+      this._dragStart[1] += this._itemHeight * siblingIndex;
+      el[0].style.left = '0px';
+      return el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
     };
 
     UserInterface.prototype._endDrag = function(event) {
@@ -1468,6 +1512,7 @@
         return;
       }
       event.preventDefault();
+      this._repositionItem();
       this._currentlyDraggingItem = void 0;
       el = $('#item_' + id).css({
         position: '',
