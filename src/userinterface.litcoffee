@@ -13,10 +13,11 @@ Apart from the constructor, it has no public methods.
             @_dragCurrent = [0, 0]
             @_showResolved = false
             @_itemHeight = 48
+
             @_initializeUI()
-            @_suppressRefreshCalls = true
+
+            @_itemChangeQueue = []
             @_onItemChanged item for id, item of @_manager.getItems()
-            @_suppressRefreshCalls = false
             @_manager.observe (item) => @_onItemChanged item
 
             @_syncService.observe (state, errorMessage) =>
@@ -70,8 +71,8 @@ after they went through the database.
 
         _onItemChanged: (item) ->
             id = item.getID()
-            if @_currentlyEditingItems[id]?
-                # TODO save this in some queue to apply after edit is done
+            if @_currentlyEditingItems[id]? or @_currentlyDraggingItem?
+                @_itemChangeQueue.push(id)
                 return
             element = $('#item_' + id)
             element = @_createElement(id) if element.length == 0
@@ -83,6 +84,7 @@ after they went through the database.
             element.data('category', item.getCategory())
             @_updateItemVisibility(element)
             @_positionItem(element, item)
+            item
 
         _itemFromElement: (element) ->
             id = element.attr('id')
@@ -176,6 +178,7 @@ TODO: We also have to replay all changes that were made in the meantime.
                 @_hideMenu id
                 $('.item-text', '#item_' + id)
                     .text(item.getText())
+            @_replayIgnoredChanges()
 
 Accept the edited text and save the item.
 
@@ -187,6 +190,7 @@ Accept the edited text and save the item.
                 @_hideMenu id
                 text = $('.item-text', '#item_' + id).text()
                 @_manager.saveItem item.setText(text)
+            @_replayIgnoredChanges()
 
 Set an item to the editing ui state.
 
@@ -227,9 +231,9 @@ immediate feedback.
 The functions handling drag and drop of items in the list.
 
         _startDrag: (id, event) ->
-            return if @_currentlyDraggingItem
+            return if @_currentlyDraggingItem?
             event.preventDefault()
-            @_currentlyDraggingItem = id
+            @_currentlyDraggingItem = @_manager.getItems()[id]
 
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
             @_dragCurrent = @_dragStart = [pos.pageX, pos.pageY]
@@ -240,11 +244,11 @@ The functions handling drag and drop of items in the list.
                 left: '0px')
 
         _moveDrag: (event) ->
-            return unless @_currentlyDraggingItem
+            return unless @_currentlyDraggingItem?
             event.preventDefault()
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
             @_dragCurrent = [pos.pageX, pos.pageY]
-            el = $('#item_' + @_currentlyDraggingItem)
+            el = $('#item_' + @_currentlyDraggingItem.getID())
 
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
             if move != 0
@@ -254,12 +258,12 @@ The functions handling drag and drop of items in the list.
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
         _repositionItem: () ->
-            return unless @_currentlyDraggingItem
+            return unless @_currentlyDraggingItem?
 
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
             return if move == 0
 
-            el = $('#item_' + @_currentlyDraggingItem)
+            el = $('#item_' + @_currentlyDraggingItem.getID())
             siblingIndex = 0
             sibling = el
             while Math.abs(siblingIndex) < Math.abs(move)
@@ -277,12 +281,12 @@ The functions handling drag and drop of items in the list.
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
         _endDrag: (event) ->
-            id = @_currentlyDraggingItem
-            return unless id?
+            item = @_currentlyDraggingItem
+            return unless item?
             event.preventDefault()
             @_repositionItem()
             @_currentlyDraggingItem = undefined
-            el = $('#item_' + id).css(
+            el = $('#item_' + item.getID()).css(
                 position: ''
                 top: ''
                 left: '')
@@ -297,12 +301,18 @@ The functions handling drag and drop of items in the list.
                     upper - 1
                 else
                     0
-            item = @_manager.getItems()[id]
-            if item?
-                @_manager.saveItem(item.setPosition(pos))
-                .then(=> @_hideMenu id)
+            @_manager.saveItem(item.setPosition(pos))
+            .then(=> @_hideMenu item.getID())
             # the update callback will hopefully re-position the element
+            @_replayIgnoredChanges()
 
+
+        _replayIgnoredChanges: ->
+            queue = @_itemChangeQueue
+            @_itemChangeQueue = []
+            items = @_manager.getItems()
+            @_onItemChanged(items[id]) for id in queue
+            null
 
 Export the Interface
 --------------------
