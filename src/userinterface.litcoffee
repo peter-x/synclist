@@ -251,19 +251,42 @@ The functions handling drag and drop of items in the list.
             el = $('#item_' + @_currentlyDraggingItem.getID())
 
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
-            if move != 0
-                window.setTimeout((=> @_repositionItem()), 1)
+            @_repositionOtherItems(move)
 
             el[0].style.left = '0px'
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
+Visually reposition the other items to reflect a relative move of the currently
+dragging item by `move`.
+
+        _repositionOtherItems: (move) ->
+            return unless @_currentlyDraggingItem?
+
+            el = $('#item_' + @_currentlyDraggingItem.getID())
+            el.siblings(':visible').css(
+                position: ''
+                top: '')
+            if move > 0
+                el.nextAll(":visible:lt(#{move})").css(
+                    position: 'relative'
+                    top: (-@_itemHeight))
+            if move < 0
+                el.prevAll(":visible:lt(#{-move})").css(
+                    position: 'relative'
+                    top: @_itemHeight)
+
+Reposition the currently dragging item by moving it in the DOM.
+
         _repositionItem: () ->
             return unless @_currentlyDraggingItem?
 
+            el = $('#item_' + @_currentlyDraggingItem.getID())
+            el.nextAll(':visible').css(
+                position: '',
+                top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
             return if move == 0
 
-            el = $('#item_' + @_currentlyDraggingItem.getID())
             siblingIndex = 0
             sibling = el
             while Math.abs(siblingIndex) < Math.abs(move)
@@ -284,6 +307,7 @@ The functions handling drag and drop of items in the list.
             item = @_currentlyDraggingItem
             return unless item?
             event.preventDefault()
+            @_repositionOtherItems(0)
             @_repositionItem()
             @_currentlyDraggingItem = undefined
             el = $('#item_' + item.getID()).css(
