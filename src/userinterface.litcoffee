@@ -16,6 +16,8 @@ Apart from the constructor, it has no public methods.
             @_showResolved = false
             @_itemHeight = 48
 
+            @_currentCategory = ''
+
             @_initializeUI()
 
             @_itemChangeQueue = []
@@ -29,6 +31,7 @@ Apart from the constructor, it has no public methods.
                     when 'error' then 'delete'
                     when 'waiting' then 'check'
                     else 'throbber'})
+            @_setCategory('')
 
 Private Methods
 ---------------
@@ -49,13 +52,38 @@ Find all relevant html elements and register callbacks.
                     firstItem = @_itemFromElement($('.item:first')[0])
                     pos = if firstItem? then firstItem.getPosition() - 1 else 0
                     @_manager.saveItem Item.createNew(text,
-                                                      @_currentCategory(),
+                                                      @_currentCategory,
                                                       pos)
+            $('#openCategories').click () =>
+                $('#categoriesList')
+                    .empty()
+                    .append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>')
+                    .append('<li><a href="#" id="defaultCategory">Default Category</a></li>')
+
+                categories = @_manager.getCategories()
+                categories.sort()
+                for category in categories
+                    continue if category == ''
+                    $('#categoriesList').append(
+                        $('<li/>').append($('<a href="#"/>').text(category)))
+                $('#categoriesList').listview('refresh')
+                $('#categoriesList li a').click (ev) =>
+                    cat = ''
+                    if ev.target.id is 'newCategory'
+                        cat = window.prompt("Text")
+                        return unless cat?
+                    else if ev.target.id is 'defaultCategory'
+                        cat = ''
+                    else
+                        cat = ev.target.text
+                    @_setCategory cat
+                    window.setTimeout((() -> $('#categoriesPanel').popup('close')),
+                                      1)
+                window.setTimeout((() -> $('#categoriesPanel').popup('open')),
+                                  1)
+
             $('#syncState').click () =>
                 @_syncService.fullSync()
-
-        _currentCategory: () ->
-            '' #$('#categorySelector').val()
 
 Updates the visibility of all items.
 
@@ -63,9 +91,9 @@ Updates the visibility of all items.
             @_showHideItem(item, $('#item_' + id)) for id, item of @_manager.getItems()
 
         _isItemVisible: (item) ->
-            category = @_currentCategory()
+            category = @_currentCategory
             (@_showResolved or not item.isResolved()) and \
-                (category == '' or item.getCategory() == category)
+                      item.getCategory() == category
 
         _showHideItem: (item, element) ->
             if @_isItemVisible(item)
@@ -73,6 +101,11 @@ Updates the visibility of all items.
             else
                 element.removeClass('visibleItem')
 
+        _setCategory: (category) ->
+            @_currentCategory = category
+            category = 'Default Category' if category == ''
+            $('#currentCategory').text(category)
+            @_showHideItems()
 
 Apply changes found in the database. This also applies changes made by the user
 after they went through the database.
