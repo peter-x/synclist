@@ -1205,13 +1205,12 @@
       this._showResolved = false;
       this._itemHeight = 48;
       this._initializeUI();
-      this._suppressRefreshCalls = true;
+      this._itemChangeQueue = [];
       _ref = this._manager.getItems();
       for (id in _ref) {
         item = _ref[id];
         this._onItemChanged(item);
       }
-      this._suppressRefreshCalls = false;
       this._manager.observe(function(item) {
         return _this._onItemChanged(item);
       });
@@ -1293,7 +1292,8 @@
       var element, id,
         _this = this;
       id = item.getID();
-      if (this._currentlyEditingItems[id] != null) {
+      if ((this._currentlyEditingItems[id] != null) || (this._currentlyDraggingItem != null)) {
+        this._itemChangeQueue.push(id);
         return;
       }
       element = $('#item_' + id);
@@ -1309,7 +1309,8 @@
       $('.item-text', element).text(item.getText());
       element.data('category', item.getCategory());
       this._updateItemVisibility(element);
-      return this._positionItem(element, item);
+      this._positionItem(element, item);
+      return item;
     };
 
     UserInterface.prototype._itemFromElement = function(element) {
@@ -1393,8 +1394,9 @@
       if (item != null) {
         this._showNonEditingState(id);
         this._hideMenu(id);
-        return $('.item-text', '#item_' + id).text(item.getText());
+        $('.item-text', '#item_' + id).text(item.getText());
       }
+      return this._replayIgnoredChanges();
     };
 
     UserInterface.prototype._acceptEditItemClicked = function(id) {
@@ -1405,8 +1407,9 @@
         this._showNonEditingState(id);
         this._hideMenu(id);
         text = $('.item-text', '#item_' + id).text();
-        return this._manager.saveItem(item.setText(text));
+        this._manager.saveItem(item.setText(text));
       }
+      return this._replayIgnoredChanges();
     };
 
     UserInterface.prototype._showEditingButtonState = function(id) {
@@ -1438,11 +1441,11 @@
 
     UserInterface.prototype._startDrag = function(id, event) {
       var pos, _ref;
-      if (this._currentlyDraggingItem) {
+      if (this._currentlyDraggingItem != null) {
         return;
       }
       event.preventDefault();
-      this._currentlyDraggingItem = id;
+      this._currentlyDraggingItem = this._manager.getItems()[id];
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
       this._dragCurrent = this._dragStart = [pos.pageX, pos.pageY];
       return $('#item_' + id).css({
@@ -1454,35 +1457,58 @@
     };
 
     UserInterface.prototype._moveDrag = function(event) {
-      var el, move, pos, _ref,
-        _this = this;
-      if (!this._currentlyDraggingItem) {
+      var el, move, pos, _ref;
+      if (this._currentlyDraggingItem == null) {
         return;
       }
       event.preventDefault();
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
       this._dragCurrent = [pos.pageX, pos.pageY];
-      el = $('#item_' + this._currentlyDraggingItem);
+      el = $('#item_' + this._currentlyDraggingItem.getID());
       move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
-      if (move !== 0) {
-        window.setTimeout((function() {
-          return _this._repositionItem();
-        }), 1);
-      }
+      this._repositionOtherItems(move);
       el[0].style.left = '0px';
       return el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
     };
 
-    UserInterface.prototype._repositionItem = function() {
-      var el, move, sibling, siblingIndex, tentativeSibling;
-      if (!this._currentlyDraggingItem) {
+    UserInterface.prototype._repositionOtherItems = function(move) {
+      var el;
+      if (this._currentlyDraggingItem == null) {
         return;
       }
+      el = $('#item_' + this._currentlyDraggingItem.getID());
+      el.siblings(':visible').css({
+        position: '',
+        top: ''
+      });
+      if (move > 0) {
+        el.nextAll(":visible:lt(" + move + ")").css({
+          position: 'relative',
+          top: -this._itemHeight
+        });
+      }
+      if (move < 0) {
+        return el.prevAll(":visible:lt(" + (-move) + ")").css({
+          position: 'relative',
+          top: this._itemHeight
+        });
+      }
+    };
+
+    UserInterface.prototype._repositionItem = function() {
+      var el, move, sibling, siblingIndex, tentativeSibling;
+      if (this._currentlyDraggingItem == null) {
+        return;
+      }
+      el = $('#item_' + this._currentlyDraggingItem.getID());
+      el.nextAll(':visible').css({
+        position: '',
+        top: ''
+      });
       move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
       if (move === 0) {
         return;
       }
-      el = $('#item_' + this._currentlyDraggingItem);
       siblingIndex = 0;
       sibling = el;
       while (Math.abs(siblingIndex) < Math.abs(move)) {
@@ -1505,16 +1531,17 @@
     };
 
     UserInterface.prototype._endDrag = function(event) {
-      var el, id, item, lower, pos, upper, _ref, _ref1,
+      var el, item, lower, pos, upper, _ref, _ref1,
         _this = this;
-      id = this._currentlyDraggingItem;
-      if (id == null) {
+      item = this._currentlyDraggingItem;
+      if (item == null) {
         return;
       }
       event.preventDefault();
+      this._repositionOtherItems(0);
       this._repositionItem();
       this._currentlyDraggingItem = void 0;
-      el = $('#item_' + id).css({
+      el = $('#item_' + item.getID()).css({
         position: '',
         top: '',
         left: ''
@@ -1522,12 +1549,22 @@
       lower = (_ref = this._itemFromElement(el.prev())) != null ? _ref.getPosition() : void 0;
       upper = (_ref1 = this._itemFromElement(el.next())) != null ? _ref1.getPosition() : void 0;
       pos = (lower != null) && (upper != null) ? (lower + upper) / 2.0 : lower != null ? lower + 1 : upper != null ? upper - 1 : 0;
-      item = this._manager.getItems()[id];
-      if (item != null) {
-        return this._manager.saveItem(item.setPosition(pos)).then(function() {
-          return _this._hideMenu(id);
-        });
+      this._manager.saveItem(item.setPosition(pos)).then(function() {
+        return _this._hideMenu(item.getID());
+      });
+      return this._replayIgnoredChanges();
+    };
+
+    UserInterface.prototype._replayIgnoredChanges = function() {
+      var id, items, queue, _i, _len;
+      queue = this._itemChangeQueue;
+      this._itemChangeQueue = [];
+      items = this._manager.getItems();
+      for (_i = 0, _len = queue.length; _i < _len; _i++) {
+        id = queue[_i];
+        this._onItemChanged(items[id]);
       }
+      return null;
     };
 
     return UserInterface;
