@@ -126,42 +126,26 @@ Database
 ========
 
 The database takes care of encrypting and decrypting data and uses one of the
-various backends to actually store the data. For now, we use some arbitrary
-constant password, the user will of course be able to change it later.
-Furthermore, we will also allow some means of authentication for remote storage.
-The database provides a change observer mechanism via the methods `observe` and
-`unobserve`.
+various backends to actually store the data. Furthermore, we will also allow
+some means of authentication for remote storage. The database provides a change
+observer mechanism via the methods `observe` and `unobserve`.
 
     class Database
-        constructor: (Backend, backendConfig,
-                      @_password = 'simple constant password') ->
+        constructor: (Backend, backendConfig, @_password = null) ->
             @_backend = new Backend(((key) => @_callObservers key), \
                                     backendConfig)
 
-        save: (filename, plainData, encryption=true) ->
-            @_backend.put(filename, if encryption
-                        Crypto.encrypt(plainData, @_password)
-                    else
-                        plainData)
+        save: (filename, plainData) ->
+            @_backend.put(filename, Crypto.encrypt(plainData, @_password))
                 .then(() => filename)
 
-        load: (filename, encryption=true) ->
+        load: (filename) ->
             @_backend.get(filename)
                 .then((data) =>
-                    return Utilities.rejectedDeferredPromise() unless data?
-                    if encryption
+                    if data?
                         Crypto.decrypt(data, @_password)
                     else
-                        data)
-
-The next two functions explicitly return the plain data without encrypting /
-decrypting.
-
-        savePlain: (filename, plainData) ->
-            @save(filename, plainData, false)
-
-        loadPlain: (filename) ->
-            @load(filename, false)
+                        Utilities.rejectedDeferredPromise())
 
         listObjects: ->
             @_backend.list()

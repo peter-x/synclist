@@ -41,12 +41,12 @@ Find all relevant html elements and register callbacks.
             $('#showResolved').click () =>
                 @_showResolved = not @_showResolved
                 $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
-                @_updateItemVisibility()
+                @_showHideItems()
 
             $('#newItem').click () =>
                 text = window.prompt("Text")
                 if text?
-                    firstItem = @_itemFromElement($('.item:first'))
+                    firstItem = @_itemFromElement($('.item:first')[0])
                     pos = if firstItem? then firstItem.getPosition() - 1 else 0
                     @_manager.saveItem Item.createNew(text,
                                                       @_currentCategory(),
@@ -57,12 +57,26 @@ Find all relevant html elements and register callbacks.
         _currentCategory: () ->
             '' #$('#categorySelector').val()
 
+Updates the visibility of all items.
+
+        _showHideItems: () ->
+            for id, item of @_manager.getItems()
+                element = $('#item_' + id)
+                if @_isItemVisible(item)
+                    element.show()
+                else
+                    element.hide()
+
+        _isItemVisible: (item) ->
+            category = @_currentCategory()
+            (@_showResolved or not item.isResolved()) and \
+                (category == '' or item.getCategory() == category)
+
         _updateItemVisibility: (items = $('.item'),
                                 category = @_currentCategory()) ->
             showCondition = (e) =>
-                item = @_itemFromElement $ e
-                (@_showResolved or not item.isResolved()) and \
-                    (category == '' or item.getCategory() == category)
+                item = @_itemFromElement e
+                @_isItemVisible item
             items.filter( -> not showCondition(@)).hide()
             items.filter( -> showCondition(@)).show()
 
@@ -75,34 +89,51 @@ after they went through the database.
                 @_itemChangeQueue.push(id)
                 return
             element = $('#item_' + id)
-            element = @_createElement(id) if element.length == 0
-            $('.resolved', element)
-                .button({theme: if item.isResolved() then 'b' else 'c'})
-            $('.done', element).change( =>
-                @_itemResolutionChanged(id, $('.done', element).val()))
+            isInserted = element.length > 0
+            element = @_createElement(id) if not isInserted
+            if not @_isItemVisible item
+                element.hide()
+            else
+                element.show()
+            SimpleButton.setHilight($('.resolved', element), item.isResolved())
             $('.item-text', element).text(item.getText())
-            element.data('category', item.getCategory())
-            @_updateItemVisibility(element)
-            @_positionItem(element, item)
+            @_positionItem(element, item, isInserted)
             item
 
         _itemFromElement: (element) ->
-            id = element.attr('id')
+            id = element?.id
             if id? and id.match(/^item_/)
                 @_manager.getItems()[id[5...]]
 
-        _positionItem: (element, thisItem) ->
-            # TODO could make use of binary search
-            upper = undefined
-            for el in $('.item')
-                item = @_itemFromElement($(el))
-                if item? and Item.comparator(thisItem, item) < 0
-                    upper = item
-                    break
+Returns the first element `x` from `list` where `comparator(x)` is true. Assumes
+that all elements in `list` where `comparator` returns false precede those
+where it returns true.
+
+        _binarySearch: (list, comparator) ->
+            begin = 0
+            end = list.length
+            while begin < end
+                mid = Math.floor((end + begin) / 2)
+                if not comparator(list[mid])
+                    begin = mid + 1
+                else
+                    end = mid
+            list[begin] if begin < list.length
+
+TODO: This is a bug: If two items change before we can reposition them, the list
+will not be sorted and we cannot use this pseudo-insertion-sort.
+
+        _positionItem: (element, thisItem, isInserted) ->
+            items = $('.item')
+            if isInserted
+                items = items.not('#' + element.id)
+            upper = @_binarySearch(items, (el) =>
+                item = @_itemFromElement(el)
+                item? and Item.comparator(thisItem, item) < 0)
             if upper?
-                element.insertBefore($('#item_' + item.getID()))
-            else
-                element.appendTo($('#items'))
+                element.insertBefore($(upper))
+            else if not isInserted
+                element.appendTo('#items')
 
 Create a html element that provides everything that is needed to display an
 item.
@@ -111,41 +142,34 @@ item.
             el = $('<table class="item">' + \
               '<tr>' + \
               '<td class="item-buttons-left">' + \
-              '<button class="resolved" data-mini="true" ' + \
-                    'data-icon="check" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('check', 'resolved') + \
               '</td>' + \
               '<td class="item-center">' + \
               '<div class="item-text"></div>' + \
               '</td>' + \
               '<td class="item-buttons-menu">' + \
-              '<button class="acceptEdit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="check" data-iconpos="notext" />' + \
-              '<button class="abortEdit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="delete" data-iconpos="notext" />' + \
-              '<button class="move" data-inline="true" data-mini="true" ' + \
-                    'data-icon="arrow-d" data-iconpos="notext" />' + \
-              '<button class="edit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="edit" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('check', 'acceptEdit') + \
+              SimpleButton.getMarkup('delete', 'abortEdit') + \
+              SimpleButton.getMarkup('arrow-u', 'move') + \
+              SimpleButton.getMarkup('edit', 'edit') + \
               '</td>' + \
               '<td class="item-buttons-right">' + \
-              '<button class="menu" data-inline="true" data-mini="true" ' + \
-                    'data-icon="grid" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('grid', 'menu') + \
               '</td>' + \
               '</tr>' + \
               '</table>')
                 .attr('id', 'item_' + id)
-            $('button', el).button()
             $('.resolved', el).click(=> @_toggleItemResolution(id))
             $('.menu', el).click(=> @_toggleMenu(id))
             $('.move', el).bind('touchstart mousedown', (ev) => @_startDrag(id, ev))
             $('.edit', el).click(=> @_editItemClicked(id))
             $('.abortEdit', el)
                 .click(=> @_abortEditItemClicked(id))
-                .closest('.ui-btn').hide()
+                .hide()
             $('.acceptEdit', el)
                 .click(=> @_acceptEditItemClicked(id))
-                .closest('.ui-btn').hide()
-            el.appendTo('#items')
+                .hide()
+            el
 
 Start editing the item. It is important to first retrieve the item so that
 concurrent changes are not lost but merged. After that, show the accept and
@@ -168,7 +192,6 @@ abort buttons and position the cursor at the end of the text.
                 text.focus()
 
 Abort editing the item, restore the previous user interface.
-TODO: We also have to replay all changes that were made in the meantime.
 
         _abortEditItemClicked: (id) ->
             item = @_currentlyEditingItems[id]
@@ -195,10 +218,8 @@ Accept the edited text and save the item.
 Set an item to the editing ui state.
 
         _showEditingButtonState: (id) ->
-            $('.abortEdit, .acceptEdit', '#item_' + id)
-                .closest('.ui-btn').show()
-            $('.edit, .move', '#item_' + id)
-                .closest('.ui-btn').hide()
+            $('.abortEdit, .acceptEdit', '#item_' + id).show()
+            $('.edit, .move', '#item_' + id).hide()
 
 Set the item back to the normal state.
 
@@ -206,10 +227,8 @@ Set the item back to the normal state.
             $('.item-text', '#item_' + id)
                 .attr('contenteditable', 'false')
                 .blur()
-            $('.abortEdit, .acceptEdit', '#item_' + id)
-                .closest('.ui-btn').hide()
-            $('.edit, .move', '#item_' + id)
-                .closest('.ui-btn').show()
+            $('.abortEdit, .acceptEdit', '#item_' + id).hide()
+            $('.edit, .move', '#item_' + id).show()
 
 Hide or show the menu.
 
@@ -263,7 +282,7 @@ dragging item by `move`.
             return unless @_currentlyDraggingItem?
 
             el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.siblings(':visible').css(
+            el.siblings().css(
                 position: ''
                 top: '')
             if move > 0
@@ -281,7 +300,7 @@ Reposition the currently dragging item by moving it in the DOM.
             return unless @_currentlyDraggingItem?
 
             el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.nextAll(':visible').css(
+            el.siblings().css(
                 position: '',
                 top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
@@ -314,8 +333,8 @@ Reposition the currently dragging item by moving it in the DOM.
                 position: ''
                 top: ''
                 left: '')
-            lower = @_itemFromElement(el.prev())?.getPosition()
-            upper = @_itemFromElement(el.next())?.getPosition()
+            lower = @_itemFromElement(el.prev()[0])?.getPosition()
+            upper = @_itemFromElement(el.next()[0])?.getPosition()
             pos =
                 if lower? and upper?
                     (lower + upper) / 2.0
@@ -337,6 +356,32 @@ Reposition the currently dragging item by moving it in the DOM.
             items = @_manager.getItems()
             @_onItemChanged(items[id]) for id in queue
             null
+
+
+Helper Classes
+--------------
+
+The `SimpleButton` is a high-performance replacement for jQueryMobile's button
+and uses its css classes.
+
+    SimpleButton =
+        hilightClass: (hilight) ->
+            if hilight then 'ui-btn-up-b' else 'ui-btn-up-c'
+
+        getMarkup: (icon, cssClass = '', hilight = false) ->
+            cssClass += ' ' if cssClass != ''
+            cssClass += SimpleButton.hilightClass(hilight) + ' '
+            "<div class=\"#{cssClass}ui-btn ui-shadow ui-mini " + \
+                         "ui-btn-corner-all ui-btn-inline " + \
+                         "ui-btn-icon-notext\" aria-disabled=\"false\">" + \
+                "<span class=\"ui-btn-inner\">" + \
+                    "<span class=\"ui-icon ui-icon-#{icon} ui-icon-shadow\">" + \
+                        "&nbsp;</span></span></div>"
+
+        setHilight: (element, hilight = false) ->
+            $(element)
+                .removeClass(@hilightClass(not hilight))
+                .addClass(@hilightClass(hilight))
 
 Export the Interface
 --------------------
