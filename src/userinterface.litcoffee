@@ -17,7 +17,7 @@ Apart from the constructor, it has no public methods.
             @_initializeUI()
 
             @_itemChangeQueue = []
-            @_onItemChanged item for id, item of @_manager.getItems()
+            @_recreateItemList()
             @_manager.observe (item) => @_onItemChanged item
 
             @_syncService.observe (state, errorMessage) =>
@@ -41,7 +41,7 @@ Find all relevant html elements and register callbacks.
             $('#showResolved').click () =>
                 @_showResolved = not @_showResolved
                 $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
-                @_updateItemVisibility()
+                @_recreateItemList()
 
             $('#newItem').click () =>
                 text = window.prompt("Text")
@@ -57,12 +57,26 @@ Find all relevant html elements and register callbacks.
         _currentCategory: () ->
             '' #$('#categorySelector').val()
 
+Removes and re-adds all items. This is called after the category or the
+visibility rules of the items change.
+
+        _recreateItemList: () ->
+            idsSeen = {}
+            for id, item of @_manager.getItems()
+                idsSeen['item_' + id] = true
+                @_onItemChanged item
+            $('.item').filter(() -> not idsSeen[@id]?).remove()
+
+        _isItemVisible: (item) ->
+            category = @_currentCategory()
+            (@_showResolved or not item.isResolved()) and \
+                (category == '' or item.getCategory() == category)
+
         _updateItemVisibility: (items = $('.item'),
                                 category = @_currentCategory()) ->
             showCondition = (e) =>
                 item = @_itemFromElement $ e
-                (@_showResolved or not item.isResolved()) and \
-                    (category == '' or item.getCategory() == category)
+                @_isItemVisible item
             items.filter( -> not showCondition(@)).hide()
             items.filter( -> showCondition(@)).show()
 
@@ -75,15 +89,14 @@ after they went through the database.
                 @_itemChangeQueue.push(id)
                 return
             element = $('#item_' + id)
-            element = @_createElement(id) if element.length == 0
-            $('.resolved', element)
-                .button({theme: if item.isResolved() then 'b' else 'c'})
-            $('.done', element).change( =>
-                @_itemResolutionChanged(id, $('.done', element).val()))
-            $('.item-text', element).text(item.getText())
-            element.data('category', item.getCategory())
-            @_updateItemVisibility(element)
-            @_positionItem(element, item)
+            if not @_isItemVisible item
+                element.remove()
+            else
+                element = @_createElement(id) if element.length == 0
+                SimpleButton.setHilight($('.resolved', element),
+                                        item.isResolved())
+                $('.item-text', element).text(item.getText())
+                @_positionItem(element, item)
             item
 
         _itemFromElement: (element) ->
@@ -111,40 +124,33 @@ item.
             el = $('<table class="item">' + \
               '<tr>' + \
               '<td class="item-buttons-left">' + \
-              '<button class="resolved" data-mini="true" ' + \
-                    'data-icon="check" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('check', 'resolved') + \
               '</td>' + \
               '<td class="item-center">' + \
               '<div class="item-text"></div>' + \
               '</td>' + \
               '<td class="item-buttons-menu">' + \
-              '<button class="acceptEdit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="check" data-iconpos="notext" />' + \
-              '<button class="abortEdit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="delete" data-iconpos="notext" />' + \
-              '<button class="move" data-inline="true" data-mini="true" ' + \
-                    'data-icon="arrow-d" data-iconpos="notext" />' + \
-              '<button class="edit" data-inline="true" data-mini="true" ' + \
-                    'data-icon="edit" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('check', 'acceptEdit') + \
+              SimpleButton.getMarkup('delete', 'abortEdit') + \
+              SimpleButton.getMarkup('arrow-u', 'move') + \
+              SimpleButton.getMarkup('edit', 'edit') + \
               '</td>' + \
               '<td class="item-buttons-right">' + \
-              '<button class="menu" data-inline="true" data-mini="true" ' + \
-                    'data-icon="grid" data-iconpos="notext" />' + \
+              SimpleButton.getMarkup('grid', 'menu') + \
               '</td>' + \
               '</tr>' + \
               '</table>')
                 .attr('id', 'item_' + id)
-            $('button', el).button()
             $('.resolved', el).click(=> @_toggleItemResolution(id))
             $('.menu', el).click(=> @_toggleMenu(id))
             $('.move', el).bind('touchstart mousedown', (ev) => @_startDrag(id, ev))
             $('.edit', el).click(=> @_editItemClicked(id))
             $('.abortEdit', el)
                 .click(=> @_abortEditItemClicked(id))
-                .closest('.ui-btn').hide()
+                .hide()
             $('.acceptEdit', el)
                 .click(=> @_acceptEditItemClicked(id))
-                .closest('.ui-btn').hide()
+                .hide()
             el.appendTo('#items')
 
 Start editing the item. It is important to first retrieve the item so that
@@ -168,7 +174,6 @@ abort buttons and position the cursor at the end of the text.
                 text.focus()
 
 Abort editing the item, restore the previous user interface.
-TODO: We also have to replay all changes that were made in the meantime.
 
         _abortEditItemClicked: (id) ->
             item = @_currentlyEditingItems[id]
@@ -195,10 +200,8 @@ Accept the edited text and save the item.
 Set an item to the editing ui state.
 
         _showEditingButtonState: (id) ->
-            $('.abortEdit, .acceptEdit', '#item_' + id)
-                .closest('.ui-btn').show()
-            $('.edit, .move', '#item_' + id)
-                .closest('.ui-btn').hide()
+            $('.abortEdit, .acceptEdit', '#item_' + id).show()
+            $('.edit, .move', '#item_' + id).hide()
 
 Set the item back to the normal state.
 
@@ -206,10 +209,8 @@ Set the item back to the normal state.
             $('.item-text', '#item_' + id)
                 .attr('contenteditable', 'false')
                 .blur()
-            $('.abortEdit, .acceptEdit', '#item_' + id)
-                .closest('.ui-btn').hide()
-            $('.edit, .move', '#item_' + id)
-                .closest('.ui-btn').show()
+            $('.abortEdit, .acceptEdit', '#item_' + id).hide()
+            $('.edit, .move', '#item_' + id).show()
 
 Hide or show the menu.
 
@@ -263,15 +264,15 @@ dragging item by `move`.
             return unless @_currentlyDraggingItem?
 
             el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.siblings(':visible').css(
+            el.siblings().css(
                 position: ''
                 top: '')
             if move > 0
-                el.nextAll(":visible:lt(#{move})").css(
+                el.nextAll(":lt(#{move})").css(
                     position: 'relative'
                     top: (-@_itemHeight))
             if move < 0
-                el.prevAll(":visible:lt(#{-move})").css(
+                el.prevAll(":lt(#{-move})").css(
                     position: 'relative'
                     top: @_itemHeight)
 
@@ -281,7 +282,7 @@ Reposition the currently dragging item by moving it in the DOM.
             return unless @_currentlyDraggingItem?
 
             el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.nextAll(':visible').css(
+            el.nextAll().css(
                 position: '',
                 top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
@@ -291,9 +292,9 @@ Reposition the currently dragging item by moving it in the DOM.
             sibling = el
             while Math.abs(siblingIndex) < Math.abs(move)
                 tentativeSibling = if move > 0
-                        sibling.nextAll(':visible:first')
+                        sibling.next()
                     else
-                        sibling.prevAll(':visible:first')
+                        sibling.prev()
                 break if tentativeSibling.length == 0
                 sibling = tentativeSibling
                 siblingIndex += if move > 0 then 1 else -1
@@ -337,6 +338,32 @@ Reposition the currently dragging item by moving it in the DOM.
             items = @_manager.getItems()
             @_onItemChanged(items[id]) for id in queue
             null
+
+
+Helper Classes
+--------------
+
+The `SimpleButton` is a high-performance replacement for jQueryMobile's button
+and uses its css classes.
+
+    SimpleButton =
+        hilightClass: (hilight) ->
+            if hilight then 'ui-btn-up-b' else 'ui-btn-up-c'
+
+        getMarkup: (icon, cssClass = '', hilight = false) ->
+            cssClass += ' ' if cssClass != ''
+            cssClass += SimpleButton.hilightClass(hilight) + ' '
+            "<div class=\"#{cssClass}ui-btn ui-shadow ui-mini " + \
+                         "ui-btn-corner-all ui-btn-inline " + \
+                         "ui-btn-icon-notext\" aria-disabled=\"false\">" + \
+                "<span class=\"ui-btn-inner\">" + \
+                    "<span class=\"ui-icon ui-icon-#{icon} ui-icon-shadow\">" + \
+                        "&nbsp;</span></span></div>"
+
+        setHilight: (element, hilight = false) ->
+            $(element)
+                .removeClass(@hilightClass(not hilight))
+                .addClass(@hilightClass(hilight))
 
 Export the Interface
 --------------------
