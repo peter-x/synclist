@@ -28,7 +28,7 @@ Private Methods
 For each change in the database, recreate the UI.
 
         _settingsChanged: () ->
-            @_database.loadPlain('settings')
+            @_database.load('settings')
                 .then((data) =>
                     try
                         @_storages = JSON.parse data
@@ -69,7 +69,7 @@ For each change in the database, recreate the UI.
                 username: $('#username-1').val()
                 password: $('#password-1').val()
                 encpassword: $('#encpassword-1').val()
-            @_database.loadPlain('settings')
+            @_database.load('settings')
                 .always((settings) =>
                     try
                         settings = JSON.parse settings
