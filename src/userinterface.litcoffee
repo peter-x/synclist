@@ -92,11 +92,12 @@ after they went through the database.
             if not @_isItemVisible item
                 element.remove()
             else
-                element = @_createElement(id) if element.length == 0
+                isInserted = element.length > 0
+                element = @_createElement(id) if not isInserted
                 SimpleButton.setHilight($('.resolved', element),
                                         item.isResolved())
                 $('.item-text', element).text(item.getText())
-                @_positionItem(element, item)
+                @_positionItem(element, item, isInserted)
             item
 
         _itemFromElement: (element) ->
@@ -104,18 +105,35 @@ after they went through the database.
             if id? and id.match(/^item_/)
                 @_manager.getItems()[id[5...]]
 
-        _positionItem: (element, thisItem) ->
-            # TODO could make use of binary search
-            upper = undefined
-            for el in $('.item')
+Returns the first element `x` from `list` where `comparator(x)` is true. Assumes
+that all elements in `list` where `comparator` returns false precede those
+where it returns true.
+
+        _binarySearch: (list, comparator) ->
+            begin = 0
+            end = list.length
+            while begin < end
+                mid = Math.floor((end + begin) / 2)
+                if not comparator(list[mid])
+                    begin = mid + 1
+                else
+                    end = mid
+            list[begin] if begin < list.length
+
+TODO: This is a bug: If two items change before we can reposition them, the list
+will not be sorted and we cannot use this pseudo-insertion-sort.
+
+        _positionItem: (element, thisItem, isInserted) ->
+            items = $('.item')
+            if isInserted
+                items = items.not('#' + element.id)
+            upper = @_binarySearch(items, (el) =>
                 item = @_itemFromElement(el)
-                if item? and Item.comparator(thisItem, item) < 0
-                    upper = item
-                    break
+                item? and Item.comparator(thisItem, item) < 0)
             if upper?
-                element.insertBefore($('#item_' + item.getID()))
-            else
-                element.appendTo($('#items'))
+                element.insertBefore($(upper))
+            else if not isInserted
+                element.appendTo('#items')
 
 Create a html element that provides everything that is needed to display an
 item.
@@ -151,7 +169,7 @@ item.
             $('.acceptEdit', el)
                 .click(=> @_acceptEditItemClicked(id))
                 .hide()
-            el.appendTo('#items')
+            el
 
 Start editing the item. It is important to first retrieve the item so that
 concurrent changes are not lost but merged. After that, show the accept and
