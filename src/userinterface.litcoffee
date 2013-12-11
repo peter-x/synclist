@@ -46,7 +46,7 @@ Find all relevant html elements and register callbacks.
             $('#newItem').click () =>
                 text = window.prompt("Text")
                 if text?
-                    firstItem = @_itemFromElement($('.item:first'))
+                    firstItem = @_itemFromElement($('.item:first')[0])
                     pos = if firstItem? then firstItem.getPosition() - 1 else 0
                     @_manager.saveItem Item.createNew(text,
                                                       @_currentCategory(),
@@ -75,7 +75,7 @@ visibility rules of the items change.
         _updateItemVisibility: (items = $('.item'),
                                 category = @_currentCategory()) ->
             showCondition = (e) =>
-                item = @_itemFromElement $ e
+                item = @_itemFromElement e
                 @_isItemVisible item
             items.filter( -> not showCondition(@)).hide()
             items.filter( -> showCondition(@)).show()
@@ -100,7 +100,7 @@ after they went through the database.
             item
 
         _itemFromElement: (element) ->
-            id = element.attr('id')
+            id = element?.id
             if id? and id.match(/^item_/)
                 @_manager.getItems()[id[5...]]
 
@@ -108,7 +108,7 @@ after they went through the database.
             # TODO could make use of binary search
             upper = undefined
             for el in $('.item')
-                item = @_itemFromElement($(el))
+                item = @_itemFromElement(el)
                 if item? and Item.comparator(thisItem, item) < 0
                     upper = item
                     break
@@ -315,8 +315,8 @@ Reposition the currently dragging item by moving it in the DOM.
                 position: ''
                 top: ''
                 left: '')
-            lower = @_itemFromElement(el.prev())?.getPosition()
-            upper = @_itemFromElement(el.next())?.getPosition()
+            lower = @_itemFromElement(el.prev()[0])?.getPosition()
+            upper = @_itemFromElement(el.next()[0])?.getPosition()
             pos =
                 if lower? and upper?
                     (lower + upper) / 2.0
