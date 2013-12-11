@@ -17,7 +17,7 @@ Apart from the constructor, it has no public methods.
             @_initializeUI()
 
             @_itemChangeQueue = []
-            @_recreateItemList()
+            @_onItemChanged item for id, item of @_manager.getItems()
             @_manager.observe (item) => @_onItemChanged item
 
             @_syncService.observe (state, errorMessage) =>
@@ -41,7 +41,7 @@ Find all relevant html elements and register callbacks.
             $('#showResolved').click () =>
                 @_showResolved = not @_showResolved
                 $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
-                @_recreateItemList()
+                @_showHideItems()
 
             $('#newItem').click () =>
                 text = window.prompt("Text")
@@ -57,15 +57,15 @@ Find all relevant html elements and register callbacks.
         _currentCategory: () ->
             '' #$('#categorySelector').val()
 
-Removes and re-adds all items. This is called after the category or the
-visibility rules of the items change.
+Updates the visibility of all items.
 
-        _recreateItemList: () ->
-            idsSeen = {}
+        _showHideItems: () ->
             for id, item of @_manager.getItems()
-                idsSeen['item_' + id] = true
-                @_onItemChanged item
-            $('.item').filter(() -> not idsSeen[@id]?).remove()
+                element = $('#item_' + id)
+                if @_isItemVisible(item)
+                    element.show()
+                else
+                    element.hide()
 
         _isItemVisible: (item) ->
             category = @_currentCategory()
@@ -89,15 +89,15 @@ after they went through the database.
                 @_itemChangeQueue.push(id)
                 return
             element = $('#item_' + id)
+            isInserted = element.length > 0
+            element = @_createElement(id) if not isInserted
             if not @_isItemVisible item
-                element.remove()
+                element.hide()
             else
-                isInserted = element.length > 0
-                element = @_createElement(id) if not isInserted
-                SimpleButton.setHilight($('.resolved', element),
-                                        item.isResolved())
-                $('.item-text', element).text(item.getText())
-                @_positionItem(element, item, isInserted)
+                element.show()
+            SimpleButton.setHilight($('.resolved', element), item.isResolved())
+            $('.item-text', element).text(item.getText())
+            @_positionItem(element, item, isInserted)
             item
 
         _itemFromElement: (element) ->
@@ -286,11 +286,11 @@ dragging item by `move`.
                 position: ''
                 top: '')
             if move > 0
-                el.nextAll(":lt(#{move})").css(
+                el.nextAll(":visible:lt(#{move})").css(
                     position: 'relative'
                     top: (-@_itemHeight))
             if move < 0
-                el.prevAll(":lt(#{-move})").css(
+                el.prevAll(":visible:lt(#{-move})").css(
                     position: 'relative'
                     top: @_itemHeight)
 
@@ -300,7 +300,7 @@ Reposition the currently dragging item by moving it in the DOM.
             return unless @_currentlyDraggingItem?
 
             el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.nextAll().css(
+            el.siblings().css(
                 position: '',
                 top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
@@ -310,9 +310,9 @@ Reposition the currently dragging item by moving it in the DOM.
             sibling = el
             while Math.abs(siblingIndex) < Math.abs(move)
                 tentativeSibling = if move > 0
-                        sibling.next()
+                        sibling.nextAll(':visible:first')
                     else
-                        sibling.prev()
+                        sibling.prevAll(':visible:first')
                 break if tentativeSibling.length == 0
                 sibling = tentativeSibling
                 siblingIndex += if move > 0 then 1 else -1
