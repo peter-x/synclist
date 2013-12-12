@@ -769,7 +769,7 @@
           index = settings.length;
         }
         settings[index] = data;
-        return _this._database.save('settings', JSON.stringify(settings)).then(function() {
+        return _this._database.savePlain('settings', JSON.stringify(settings)).then(function() {
           return $('#settingsForStorage').dialog('close');
         });
       });
@@ -1193,6 +1193,7 @@
       this._currentlyDraggingItem = void 0;
       this._dragStart = [0, 0];
       this._dragCurrent = [0, 0];
+      this._dragLastMoveDiff = 0;
       this._showResolved = false;
       this._itemHeight = 48;
       this._initializeUI();
@@ -1493,33 +1494,34 @@
       this._dragCurrent = [pos.pageX, pos.pageY];
       el = $('#item_' + this._currentlyDraggingItem.getID());
       move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
-      this._repositionOtherItems(move);
       el[0].style.left = '0px';
-      return el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
-    };
-
-    UserInterface.prototype._repositionOtherItems = function(move) {
-      var el;
-      if (this._currentlyDraggingItem == null) {
+      el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
+      if (this._dragLastMoveDiff === move) {
         return;
       }
-      el = $('#item_' + this._currentlyDraggingItem.getID());
-      el.siblings().css({
-        position: '',
-        top: ''
-      });
+      if (this._dragLastMoveDiff > 0) {
+        el.nextAll(":visible:lt(" + this._dragLastMoveDiff + ")").css({
+          top: '0px'
+        });
+      }
+      if (this._dragLastMoveDiff < 0) {
+        el.prevAll(":visible:lt(" + (-this._dragLastMoveDiff) + ")").css({
+          top: '0px'
+        });
+      }
       if (move > 0) {
         el.nextAll(":visible:lt(" + move + ")").css({
           position: 'relative',
-          top: -this._itemHeight
+          top: (-this._itemHeight) + 'px'
         });
       }
       if (move < 0) {
-        return el.prevAll(":visible:lt(" + (-move) + ")").css({
+        el.prevAll(":visible:lt(" + (-move) + ")").css({
           position: 'relative',
-          top: this._itemHeight
+          top: this._itemHeight + 'px'
         });
       }
+      return this._dragLastMoveDiff = move;
     };
 
     UserInterface.prototype._repositionItem = function() {
@@ -1565,7 +1567,6 @@
         return;
       }
       event.preventDefault();
-      this._repositionOtherItems(0);
       this._repositionItem();
       this._currentlyDraggingItem = void 0;
       el = $('#item_' + item.getID()).css({

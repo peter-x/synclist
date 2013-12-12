@@ -11,6 +11,7 @@ Apart from the constructor, it has no public methods.
             @_currentlyDraggingItem = undefined
             @_dragStart = [0, 0]
             @_dragCurrent = [0, 0]
+            @_dragLastMoveDiff = 0
             @_showResolved = false
             @_itemHeight = 48
 
@@ -270,29 +271,27 @@ The functions handling drag and drop of items in the list.
             el = $('#item_' + @_currentlyDraggingItem.getID())
 
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
-            @_repositionOtherItems(move)
 
             el[0].style.left = '0px'
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
-Visually reposition the other items to reflect a relative move of the currently
-dragging item by `move`.
+            return unless @_dragLastMoveDiff != move
 
-        _repositionOtherItems: (move) ->
-            return unless @_currentlyDraggingItem?
-
-            el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.siblings().css(
-                position: ''
-                top: '')
+            if @_dragLastMoveDiff > 0
+                el.nextAll(":visible:lt(#{@_dragLastMoveDiff})").css(
+                    top: '0px')
+            if @_dragLastMoveDiff < 0
+                el.prevAll(":visible:lt(#{-@_dragLastMoveDiff})").css(
+                    top: '0px')
             if move > 0
                 el.nextAll(":visible:lt(#{move})").css(
                     position: 'relative'
-                    top: (-@_itemHeight))
+                    top: (-@_itemHeight) + 'px')
             if move < 0
                 el.prevAll(":visible:lt(#{-move})").css(
                     position: 'relative'
-                    top: @_itemHeight)
+                    top: @_itemHeight + 'px')
+            @_dragLastMoveDiff = move
 
 Reposition the currently dragging item by moving it in the DOM.
 
@@ -326,7 +325,6 @@ Reposition the currently dragging item by moving it in the DOM.
             item = @_currentlyDraggingItem
             return unless item?
             event.preventDefault()
-            @_repositionOtherItems(0)
             @_repositionItem()
             @_currentlyDraggingItem = undefined
             el = $('#item_' + item.getID()).css(

@@ -19,7 +19,14 @@ or a simple WebDAV server.
 Screenshots and Demo
 ====================
 
-To come!
+Just [try the application](http://peter-x.github.io/synclist)! Per default,
+everything will be stored locally in your browser, but you can add a remote
+storage to synchronize between different browsers (and smartphones). There is
+also a working Android package!
+
+[Synclist in your Browser](http://peter-x.github.io/synclist/)
+
+[Synclist on your Android Phone](https://github.com/peter-x/synclist/raw/cordova/platforms/android/bin/SyncList-debug.apk)
 
 Data
 ====
