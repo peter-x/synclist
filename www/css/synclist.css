@@ -5,12 +5,15 @@
 .insetremover {
     margin: -15px;
     margin-top: 26px;
+    padding-bottom: 10px;
 }
 
 #items {
     width: 100%;
     font-weight: 700;
     text-shadow: 0 1px 0 #fff;
+    border: 1px solid #ccc;
+    border-top: 0px;
 }
 
 .item {
