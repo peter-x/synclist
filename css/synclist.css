@@ -23,7 +23,13 @@
     border: 1px solid #ccc;
     border-bottom: 0px;
     background: #eee;
+    display: none;
 }
+
+.item.visibleItem {
+    display: table;
+}
+
 
 .item-buttons-left {
     width: 34px;

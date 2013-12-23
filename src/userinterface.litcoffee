@@ -9,6 +9,7 @@ Apart from the constructor, it has no public methods.
         constructor: (@_manager, @_syncService) ->
             @_currentlyEditingItems = {}
             @_currentlyDraggingItem = undefined
+            @_currentlyDraggingElement = undefined
             @_dragStart = [0, 0]
             @_dragCurrent = [0, 0]
             @_dragLastMoveDiff = 0
@@ -37,8 +38,6 @@ Find all relevant html elements and register callbacks.
         _initializeUI: () ->
             $(document).bind('touchmove mousemove', (event) => @_moveDrag(event))
             $(document).bind('touchend touchcancel mouseup', (ev) => @_endDrag(ev))
-            #$('#categorySelector').change () =>
-            #    @_updateItemVisibility()
             $('#showResolved').click () =>
                 @_showResolved = not @_showResolved
                 $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
@@ -61,25 +60,19 @@ Find all relevant html elements and register callbacks.
 Updates the visibility of all items.
 
         _showHideItems: () ->
-            for id, item of @_manager.getItems()
-                element = $('#item_' + id)
-                if @_isItemVisible(item)
-                    element.show()
-                else
-                    element.hide()
+            @_showHideItem(item, $('#item_' + id)) for id, item of @_manager.getItems()
 
         _isItemVisible: (item) ->
             category = @_currentCategory()
             (@_showResolved or not item.isResolved()) and \
                 (category == '' or item.getCategory() == category)
 
-        _updateItemVisibility: (items = $('.item'),
-                                category = @_currentCategory()) ->
-            showCondition = (e) =>
-                item = @_itemFromElement e
-                @_isItemVisible item
-            items.filter( -> not showCondition(@)).hide()
-            items.filter( -> showCondition(@)).show()
+        _showHideItem: (item, element) ->
+            if @_isItemVisible(item)
+                element.addClass('visibleItem')
+            else
+                element.removeClass('visibleItem')
+
 
 Apply changes found in the database. This also applies changes made by the user
 after they went through the database.
@@ -92,10 +85,7 @@ after they went through the database.
             element = $('#item_' + id)
             isInserted = element.length > 0
             element = @_createElement(id) if not isInserted
-            if not @_isItemVisible item
-                element.hide()
-            else
-                element.show()
+            @_showHideItem(item, element)
             SimpleButton.setHilight($('.resolved', element), item.isResolved())
             $('.item-text', element).text(item.getText())
             @_positionItem(element, item, isInserted)
@@ -254,10 +244,11 @@ The functions handling drag and drop of items in the list.
             return if @_currentlyDraggingItem?
             event.preventDefault()
             @_currentlyDraggingItem = @_manager.getItems()[id]
+            @_currentlyDraggingElement = $('#item_' + id)
 
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
             @_dragCurrent = @_dragStart = [pos.pageX, pos.pageY]
-            $('#item_' + id).css(
+            @_currentlyDraggingElement.css(
                 zIndex: '13'
                 position: 'relative'
                 top: '0px'
@@ -268,27 +259,26 @@ The functions handling drag and drop of items in the list.
             event.preventDefault()
             pos = if event.originalEvent?.touches? then event.originalEvent.touches[0] else event
             @_dragCurrent = [pos.pageX, pos.pageY]
-            el = $('#item_' + @_currentlyDraggingItem.getID())
+            el = @_currentlyDraggingElement
 
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
 
-            el[0].style.left = '0px'
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
 
             return unless @_dragLastMoveDiff != move
 
             if @_dragLastMoveDiff > 0
-                el.nextAll(":visible:lt(#{@_dragLastMoveDiff})").css(
+                el.nextAll(".visibleItem:lt(#{@_dragLastMoveDiff})").css(
                     top: '0px')
             if @_dragLastMoveDiff < 0
-                el.prevAll(":visible:lt(#{-@_dragLastMoveDiff})").css(
+                el.prevAll(".visibleItem:lt(#{-@_dragLastMoveDiff})").css(
                     top: '0px')
             if move > 0
-                el.nextAll(":visible:lt(#{move})").css(
+                el.nextAll(".visibleItem:lt(#{move})").css(
                     position: 'relative'
                     top: (-@_itemHeight) + 'px')
             if move < 0
-                el.prevAll(":visible:lt(#{-move})").css(
+                el.prevAll(".visibleItem:lt(#{-move})").css(
                     position: 'relative'
                     top: @_itemHeight + 'px')
             @_dragLastMoveDiff = move
@@ -298,8 +288,8 @@ Reposition the currently dragging item by moving it in the DOM.
         _repositionItem: () ->
             return unless @_currentlyDraggingItem?
 
-            el = $('#item_' + @_currentlyDraggingItem.getID())
-            el.siblings().css(
+            el = @_currentlyDraggingElement
+            $('.item').css(
                 position: '',
                 top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
@@ -309,9 +299,9 @@ Reposition the currently dragging item by moving it in the DOM.
             sibling = el
             while Math.abs(siblingIndex) < Math.abs(move)
                 tentativeSibling = if move > 0
-                        sibling.nextAll(':visible:first')
+                        sibling.nextAll('.visibleItem:first')
                     else
-                        sibling.prevAll(':visible:first')
+                        sibling.prevAll('.visibleItem:first')
                 break if tentativeSibling.length == 0
                 sibling = tentativeSibling
                 siblingIndex += if move > 0 then 1 else -1
@@ -327,10 +317,8 @@ Reposition the currently dragging item by moving it in the DOM.
             event.preventDefault()
             @_repositionItem()
             @_currentlyDraggingItem = undefined
-            el = $('#item_' + item.getID()).css(
-                position: ''
-                top: ''
-                left: '')
+            el = @_currentlyDraggingElement
+            @_currentlyDraggingElement = undefined
             lower = @_itemFromElement(el.prev()[0])?.getPosition()
             upper = @_itemFromElement(el.next()[0])?.getPosition()
             pos =
