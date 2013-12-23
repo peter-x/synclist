@@ -769,7 +769,7 @@
           index = settings.length;
         }
         settings[index] = data;
-        return _this._database.savePlain('settings', JSON.stringify(settings)).then(function() {
+        return _this._database.save('settings', JSON.stringify(settings)).then(function() {
           return $('#settingsForStorage').dialog('close');
         });
       });
@@ -1191,6 +1191,7 @@
       this._syncService = _syncService;
       this._currentlyEditingItems = {};
       this._currentlyDraggingItem = void 0;
+      this._currentlyDraggingElement = void 0;
       this._dragStart = [0, 0];
       this._dragCurrent = [0, 0];
       this._dragLastMoveDiff = 0;
@@ -1259,17 +1260,12 @@
     };
 
     UserInterface.prototype._showHideItems = function() {
-      var element, id, item, _ref, _results;
+      var id, item, _ref, _results;
       _ref = this._manager.getItems();
       _results = [];
       for (id in _ref) {
         item = _ref[id];
-        element = $('#item_' + id);
-        if (this._isItemVisible(item)) {
-          _results.push(element.show());
-        } else {
-          _results.push(element.hide());
-        }
+        _results.push(this._showHideItem(item, $('#item_' + id)));
       }
       return _results;
     };
@@ -1280,26 +1276,12 @@
       return (this._showResolved || !item.isResolved()) && (category === '' || item.getCategory() === category);
     };
 
-    UserInterface.prototype._updateItemVisibility = function(items, category) {
-      var showCondition,
-        _this = this;
-      if (items == null) {
-        items = $('.item');
+    UserInterface.prototype._showHideItem = function(item, element) {
+      if (this._isItemVisible(item)) {
+        return element.addClass('visibleItem');
+      } else {
+        return element.removeClass('visibleItem');
       }
-      if (category == null) {
-        category = this._currentCategory();
-      }
-      showCondition = function(e) {
-        var item;
-        item = _this._itemFromElement(e);
-        return _this._isItemVisible(item);
-      };
-      items.filter(function() {
-        return !showCondition(this);
-      }).hide();
-      return items.filter(function() {
-        return showCondition(this);
-      }).show();
     };
 
     UserInterface.prototype._onItemChanged = function(item) {
@@ -1314,11 +1296,7 @@
       if (!isInserted) {
         element = this._createElement(id);
       }
-      if (!this._isItemVisible(item)) {
-        element.hide();
-      } else {
-        element.show();
-      }
+      this._showHideItem(item, element);
       SimpleButton.setHilight($('.resolved', element), item.isResolved());
       $('.item-text', element).text(item.getText());
       this._positionItem(element, item, isInserted);
@@ -1474,9 +1452,10 @@
       }
       event.preventDefault();
       this._currentlyDraggingItem = this._manager.getItems()[id];
+      this._currentlyDraggingElement = $('#item_' + id);
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
       this._dragCurrent = this._dragStart = [pos.pageX, pos.pageY];
-      return $('#item_' + id).css({
+      return this._currentlyDraggingElement.css({
         zIndex: '13',
         position: 'relative',
         top: '0px',
@@ -1492,31 +1471,30 @@
       event.preventDefault();
       pos = ((_ref = event.originalEvent) != null ? _ref.touches : void 0) != null ? event.originalEvent.touches[0] : event;
       this._dragCurrent = [pos.pageX, pos.pageY];
-      el = $('#item_' + this._currentlyDraggingItem.getID());
+      el = this._currentlyDraggingElement;
       move = Math.round((this._dragCurrent[1] - this._dragStart[1]) / this._itemHeight);
-      el[0].style.left = '0px';
       el[0].style.top = (this._dragCurrent[1] - this._dragStart[1]) + 'px';
       if (this._dragLastMoveDiff === move) {
         return;
       }
       if (this._dragLastMoveDiff > 0) {
-        el.nextAll(":visible:lt(" + this._dragLastMoveDiff + ")").css({
+        el.nextAll(".visibleItem:lt(" + this._dragLastMoveDiff + ")").css({
           top: '0px'
         });
       }
       if (this._dragLastMoveDiff < 0) {
-        el.prevAll(":visible:lt(" + (-this._dragLastMoveDiff) + ")").css({
+        el.prevAll(".visibleItem:lt(" + (-this._dragLastMoveDiff) + ")").css({
           top: '0px'
         });
       }
       if (move > 0) {
-        el.nextAll(":visible:lt(" + move + ")").css({
+        el.nextAll(".visibleItem:lt(" + move + ")").css({
           position: 'relative',
           top: (-this._itemHeight) + 'px'
         });
       }
       if (move < 0) {
-        el.prevAll(":visible:lt(" + (-move) + ")").css({
+        el.prevAll(".visibleItem:lt(" + (-move) + ")").css({
           position: 'relative',
           top: this._itemHeight + 'px'
         });
@@ -1529,8 +1507,8 @@
       if (this._currentlyDraggingItem == null) {
         return;
       }
-      el = $('#item_' + this._currentlyDraggingItem.getID());
-      el.siblings().css({
+      el = this._currentlyDraggingElement;
+      $('.item').css({
         position: '',
         top: ''
       });
@@ -1541,7 +1519,7 @@
       siblingIndex = 0;
       sibling = el;
       while (Math.abs(siblingIndex) < Math.abs(move)) {
-        tentativeSibling = move > 0 ? sibling.nextAll(':visible:first') : sibling.prevAll(':visible:first');
+        tentativeSibling = move > 0 ? sibling.nextAll('.visibleItem:first') : sibling.prevAll('.visibleItem:first');
         if (tentativeSibling.length === 0) {
           break;
         }
@@ -1569,11 +1547,8 @@
       event.preventDefault();
       this._repositionItem();
       this._currentlyDraggingItem = void 0;
-      el = $('#item_' + item.getID()).css({
-        position: '',
-        top: '',
-        left: ''
-      });
+      el = this._currentlyDraggingElement;
+      this._currentlyDraggingElement = void 0;
       lower = (_ref = this._itemFromElement(el.prev()[0])) != null ? _ref.getPosition() : void 0;
       upper = (_ref1 = this._itemFromElement(el.next()[0])) != null ? _ref1.getPosition() : void 0;
       pos = (lower != null) && (upper != null) ? (lower + upper) / 2.0 : lower != null ? lower + 1 : upper != null ? upper - 1 : 0;
