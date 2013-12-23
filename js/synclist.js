@@ -769,7 +769,7 @@
           index = settings.length;
         }
         settings[index] = data;
-        return _this._database.savePlain('settings', JSON.stringify(settings)).then(function() {
+        return _this._database.save('settings', JSON.stringify(settings)).then(function() {
           return $('#settingsForStorage').dialog('close');
         });
       });

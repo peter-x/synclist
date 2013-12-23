@@ -77,7 +77,7 @@ For each change in the database, recreate the UI.
                         settings = []
                     if index == '' or index < 0 then index = settings.length
                     settings[index] = data
-                    @_database.savePlain('settings', JSON.stringify settings)
+                    @_database.save('settings', JSON.stringify settings)
                         .then(() => $('#settingsForStorage').dialog('close')))
 
     Observer(Settings)
