@@ -46,14 +46,38 @@ Find all relevant html elements and register callbacks.
                 $('#showResolved').button({theme: if @_showResolved then 'b' else 'c'})
                 @_showHideItems()
 
-            $('#newItem').click () =>
-                text = window.prompt("Text")
-                if text?
-                    firstItem = @_itemFromElement($('.item:first')[0])
-                    pos = if firstItem? then firstItem.getPosition() - 1 else 0
-                    @_manager.saveItem Item.createNew(text,
-                                                      @_currentCategory,
-                                                      pos)
+            newItem = @_createElementMarkup('newItem')
+                .appendTo('#items')
+            $('.item-text', newItem)
+                .text('New item')
+            $('.item-center', newItem)
+                .click () =>
+                    @_showEditingButtonState '#newItem'
+                    $('.item-buttons-menu', '#newItem').show()
+                    $('.item-text', '#newItem')
+                        .text('')
+                        .addClass('editing')
+                    @_startTextEditing($('.item-text', newItem))
+            $('.abortEdit', newItem).click (ev) =>
+                ev.preventDefault()
+                @_showNonEditingState '#newItem'
+                $('.item-buttons-menu', '#newItem').hide()
+                @_endTextEditing($('.item-text', newItem), 'New item')
+                $('.item-text').removeClass('editing')
+            $('.acceptEdit', newItem).click (ev) =>
+                ev.preventDefault()
+                text = $('.item-text', '#newItem').text()
+                @_showNonEditingState '#newItem'
+                $('.item-buttons-menu', '#newItem').hide()
+                @_endTextEditing($('.item-text', '#newItem'), 'New item')
+                $('.item-text').removeClass('editing')
+
+                firstItem = @_itemFromElement($('.item:eq(1)')[0])
+                pos = if firstItem? then firstItem.getPosition() - 1 else 0
+                @_manager.saveItem Item.createNew(text,
+                                                  @_currentCategory,
+                                                  pos)
+            
             $('#openCategories').click () =>
                 $('#categoriesList')
                     .empty()
@@ -148,7 +172,7 @@ TODO: This is a bug: If two items change before we can reposition them, the list
 will not be sorted and we cannot use this pseudo-insertion-sort.
 
         _positionItem: (element, thisItem, isInserted) ->
-            items = $('.item')
+            items = $('.item').not('#newItem')
             if isInserted
                 items = items.not('#' + element.id)
             upper = @_binarySearch(items, (el) =>
@@ -162,8 +186,8 @@ will not be sorted and we cannot use this pseudo-insertion-sort.
 Create a html element that provides everything that is needed to display an
 item.
 
-        _createElement: (id) ->
-            el = $('<table class="item">' + \
+        _createElementMarkup: (elementId) ->
+            $('<table class="item">' + \
               '<tr>' + \
               '<td class="item-buttons-left">' + \
               SimpleButton.getMarkup('check', 'resolved') + \
@@ -182,7 +206,10 @@ item.
               '</td>' + \
               '</tr>' + \
               '</table>')
-                .attr('id', 'item_' + id)
+                .attr('id', elementId)
+
+        _createElement: (id) ->
+            el = @_createElementMarkup('item_' + id)
             $('.resolved', el).click(=> @_toggleItemResolution(id))
             $('.menu', el).click(=> @_toggleMenu(id))
             $('.move', el).bind('touchstart mousedown', (ev) => @_startDrag(id, ev))
@@ -204,16 +231,24 @@ abort buttons and position the cursor at the end of the text.
             item = @_manager.getItems()[id]
             if item?
                 @_currentlyEditingItems[id] = item
-                @_showEditingButtonState id
-                text = $('.item-text', '#item_' + id)
-                text.attr('contenteditable', 'true')
-                range = document.createRange()
-                range.selectNode(text[0].childNodes[0])
-                range.collapse(false)
-                sel = window.getSelection()
-                sel.removeAllRanges()
-                sel.addRange(range)
-                text.focus()
+                @_showEditingButtonState '#item_' + id
+                @_startTextEditing($('.item-text', '#item_' + id))
+
+        _startTextEditing: (textElement) ->
+            textElement.attr('contenteditable', 'true')
+            range = document.createRange()
+            range.selectNode(textElement[0].childNodes[0])
+            range.collapse(false)
+            sel = window.getSelection()
+            sel.removeAllRanges()
+            sel.addRange(range)
+            textElement.focus()
+
+        _endTextEditing: (textElement, text = '') ->
+            textElement
+                .text(text)
+                .attr('contenteditable', 'false')
+                .blur()
 
 Abort editing the item, restore the previous user interface.
 
@@ -221,10 +256,11 @@ Abort editing the item, restore the previous user interface.
             item = @_currentlyEditingItems[id]
             delete @_currentlyEditingItems[id]
             if item?
-                @_showNonEditingState id
+                @_endTextEditing($('.item-text', '#item_' + id),
+                                 item.getText())
+                @_showNonEditingState '#item_' + id
                 @_hideMenu id
-                $('.item-text', '#item_' + id)
-                    .text(item.getText())
+
             @_replayIgnoredChanges()
 
 Accept the edited text and save the item.
@@ -233,26 +269,25 @@ Accept the edited text and save the item.
             item = @_currentlyEditingItems[id]
             delete @_currentlyEditingItems[id]
             if item?
-                @_showNonEditingState id
-                @_hideMenu id
                 text = $('.item-text', '#item_' + id).text()
+                @_endTextEditing($('.item-text', '#item_' + id),
+                                 text)
+                @_showNonEditingState '#item_' + id
+                @_hideMenu id
                 @_manager.saveItem item.setText(text)
             @_replayIgnoredChanges()
 
 Set an item to the editing ui state.
 
-        _showEditingButtonState: (id) ->
-            $('.abortEdit, .acceptEdit', '#item_' + id).show()
-            $('.edit, .move', '#item_' + id).hide()
+        _showEditingButtonState: (elementId) ->
+            $('.abortEdit, .acceptEdit', elementId).show()
+            $('.edit, .move', elementId).hide()
 
 Set the item back to the normal state.
 
-        _showNonEditingState: (id) ->
-            $('.item-text', '#item_' + id)
-                .attr('contenteditable', 'false')
-                .blur()
-            $('.abortEdit, .acceptEdit', '#item_' + id).hide()
-            $('.edit, .move', '#item_' + id).show()
+        _showNonEditingState: (elementId) ->
+            $('.abortEdit, .acceptEdit', elementId).hide()
+            $('.edit, .move', elementId).show()
 
 Hide or show the menu.
 
