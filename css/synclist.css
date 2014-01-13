@@ -4,7 +4,7 @@
 
 .insetremover {
     margin: -15px;
-    margin-top: 26px;
+    margin-top: -8px;
     padding-bottom: 10px;
 }
 
@@ -19,6 +19,7 @@
 .item {
     z-index: 1;
     width: 100%;
+    height: 45px;
     border-collapse: collapse;
     border: 1px solid #ccc;
     border-bottom: 0px;
@@ -47,6 +48,22 @@
     width: 10px;
     overflow: overflow;
     white-space: nowrap;
+}
+
+#newItem {
+    display: table;
+}
+
+#newItem .item-center {
+    cursor: pointer;
+}
+
+#newItem .item-text, #newItem .item-buttons-right, #newItem .item-buttons-left {
+    opacity: .5;
+}
+
+#newItem .item-text.editing {
+    opacity: 1;
 }
 
 .item-buttons-menu {

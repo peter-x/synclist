@@ -19,13 +19,23 @@
         <a href="#settings" class="ui-btn-right" data-icon="bars">Settings</a>
     </div>
     <div data-role="content">
-        <!--<h2 id="category">Category</h2>
-        <input id="categorySelector" />-->
-        <button id="showResolved" data-inline="true" data-icon="check" data-iconpos="notext"></button>
-        <button id="newItem" data-inline="true" data-icon="plus">New Item</button>
         <div class="insetremover">
-        <div id="items">
+            <div data-role="header" class="ui-bar-c">
+                <button id="showResolved" data-inline="true" data-icon="check" data-iconpos="notext" class="ui-btn-left"></button>
+                <h1 id="currentCategory"><a href="#">Default Caetegory</a></h1>
+                <a id="openCategories" href="#categoriesPanel" class="ui-btn-right">change</a>
+            </div>
+            <div id="items"></div>
         </div>
+        <div data-role="popup" data-history="false" id="categoriesPanel" style="min-width:250px;">
+            <div data-role="header">
+                <h1>Categories</h1>
+            </div>
+            <div data-role="content">
+                <ul id="categoriesList" data-role="listview">
+                    <li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>

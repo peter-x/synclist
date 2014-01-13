@@ -1197,6 +1197,7 @@
       this._dragLastMoveDiff = 0;
       this._showResolved = false;
       this._itemHeight = 48;
+      this._currentCategory = '';
       this._initializeUI();
       this._itemChangeQueue = [];
       _ref = this._manager.getItems();
@@ -1224,10 +1225,12 @@
           })()
         });
       });
+      this._setCategory('');
     }
 
     UserInterface.prototype._initializeUI = function() {
-      var _this = this;
+      var newItem,
+        _this = this;
       $(document).bind('touchmove mousemove', function(event) {
         return _this._moveDrag(event);
       });
@@ -1241,22 +1244,71 @@
         });
         return _this._showHideItems();
       });
-      $('#newItem').click(function() {
+      newItem = this._createElementMarkup('newItem').appendTo('#items');
+      $('.item-text', newItem).text('New item');
+      $('.item-center', newItem).click(function() {
+        _this._showEditingButtonState('#newItem');
+        $('.item-buttons-menu', '#newItem').show();
+        $('.item-text', '#newItem').text('').addClass('editing');
+        return _this._startTextEditing($('.item-text', newItem));
+      });
+      $('.abortEdit', newItem).click(function(ev) {
+        ev.preventDefault();
+        _this._showNonEditingState('#newItem');
+        $('.item-buttons-menu', '#newItem').hide();
+        _this._endTextEditing($('.item-text', newItem), 'New item');
+        return $('.item-text').removeClass('editing');
+      });
+      $('.acceptEdit', newItem).click(function(ev) {
         var firstItem, pos, text;
-        text = window.prompt("Text");
-        if (text != null) {
-          firstItem = _this._itemFromElement($('.item:first')[0]);
-          pos = firstItem != null ? firstItem.getPosition() - 1 : 0;
-          return _this._manager.saveItem(Item.createNew(text, _this._currentCategory(), pos));
+        ev.preventDefault();
+        text = $('.item-text', '#newItem').text();
+        _this._showNonEditingState('#newItem');
+        $('.item-buttons-menu', '#newItem').hide();
+        _this._endTextEditing($('.item-text', '#newItem'), 'New item');
+        $('.item-text').removeClass('editing');
+        firstItem = _this._itemFromElement($('.item:eq(1)')[0]);
+        pos = firstItem != null ? firstItem.getPosition() - 1 : 0;
+        return _this._manager.saveItem(Item.createNew(text, _this._currentCategory, pos));
+      });
+      $('#openCategories').click(function() {
+        var categories, category, _i, _len;
+        $('#categoriesList').empty().append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>').append('<li><a href="#" id="defaultCategory">Default Category</a></li>');
+        categories = _this._manager.getCategories();
+        categories.sort();
+        for (_i = 0, _len = categories.length; _i < _len; _i++) {
+          category = categories[_i];
+          if (category === '') {
+            continue;
+          }
+          $('#categoriesList').append($('<li/>').append($('<a href="#"/>').text(category)));
         }
+        $('#categoriesList').listview('refresh');
+        $('#categoriesList li a').click(function(ev) {
+          var cat;
+          cat = '';
+          if (ev.target.id === 'newCategory') {
+            cat = window.prompt("Text");
+            if (cat == null) {
+              return;
+            }
+          } else if (ev.target.id === 'defaultCategory') {
+            cat = '';
+          } else {
+            cat = ev.target.text;
+          }
+          _this._setCategory(cat);
+          return window.setTimeout((function() {
+            return $('#categoriesPanel').popup('close');
+          }), 1);
+        });
+        return window.setTimeout((function() {
+          return $('#categoriesPanel').popup('open');
+        }), 1);
       });
       return $('#syncState').click(function() {
         return _this._syncService.fullSync();
       });
-    };
-
-    UserInterface.prototype._currentCategory = function() {
-      return '';
     };
 
     UserInterface.prototype._showHideItems = function() {
@@ -1272,8 +1324,8 @@
 
     UserInterface.prototype._isItemVisible = function(item) {
       var category;
-      category = this._currentCategory();
-      return (this._showResolved || !item.isResolved()) && (category === '' || item.getCategory() === category);
+      category = this._currentCategory;
+      return (this._showResolved || !item.isResolved()) && item.getCategory() === category;
     };
 
     UserInterface.prototype._showHideItem = function(item, element) {
@@ -1282,6 +1334,15 @@
       } else {
         return element.removeClass('visibleItem');
       }
+    };
+
+    UserInterface.prototype._setCategory = function(category) {
+      this._currentCategory = category;
+      if (category === '') {
+        category = 'Default Category';
+      }
+      $('#currentCategory').text(category);
+      return this._showHideItems();
     };
 
     UserInterface.prototype._onItemChanged = function(item) {
@@ -1331,7 +1392,7 @@
     UserInterface.prototype._positionItem = function(element, thisItem, isInserted) {
       var items, upper,
         _this = this;
-      items = $('.item');
+      items = $('.item').not('#newItem');
       if (isInserted) {
         items = items.not('#' + element.id);
       }
@@ -1347,10 +1408,14 @@
       }
     };
 
+    UserInterface.prototype._createElementMarkup = function(elementId) {
+      return $('<table class="item">' + '<tr>' + '<td class="item-buttons-left">' + SimpleButton.getMarkup('check', 'resolved') + '</td>' + '<td class="item-center">' + '<div class="item-text"></div>' + '</td>' + '<td class="item-buttons-menu">' + SimpleButton.getMarkup('check', 'acceptEdit') + SimpleButton.getMarkup('delete', 'abortEdit') + SimpleButton.getMarkup('arrow-u', 'move') + SimpleButton.getMarkup('edit', 'edit') + '</td>' + '<td class="item-buttons-right">' + SimpleButton.getMarkup('grid', 'menu') + '</td>' + '</tr>' + '</table>').attr('id', elementId);
+    };
+
     UserInterface.prototype._createElement = function(id) {
       var el,
         _this = this;
-      el = $('<table class="item">' + '<tr>' + '<td class="item-buttons-left">' + SimpleButton.getMarkup('check', 'resolved') + '</td>' + '<td class="item-center">' + '<div class="item-text"></div>' + '</td>' + '<td class="item-buttons-menu">' + SimpleButton.getMarkup('check', 'acceptEdit') + SimpleButton.getMarkup('delete', 'abortEdit') + SimpleButton.getMarkup('arrow-u', 'move') + SimpleButton.getMarkup('edit', 'edit') + '</td>' + '<td class="item-buttons-right">' + SimpleButton.getMarkup('grid', 'menu') + '</td>' + '</tr>' + '</table>').attr('id', 'item_' + id);
+      el = this._createElementMarkup('item_' + id);
       $('.resolved', el).click(function() {
         return _this._toggleItemResolution(id);
       });
@@ -1373,24 +1438,35 @@
     };
 
     UserInterface.prototype._editItemClicked = function(id) {
-      var item, range, sel, text;
+      var item;
       if (this._currentlyEditingItems[id] != null) {
         return;
       }
       item = this._manager.getItems()[id];
       if (item != null) {
         this._currentlyEditingItems[id] = item;
-        this._showEditingButtonState(id);
-        text = $('.item-text', '#item_' + id);
-        text.attr('contenteditable', 'true');
-        range = document.createRange();
-        range.selectNode(text[0].childNodes[0]);
-        range.collapse(false);
-        sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        return text.focus();
+        this._showEditingButtonState('#item_' + id);
+        return this._startTextEditing($('.item-text', '#item_' + id));
       }
+    };
+
+    UserInterface.prototype._startTextEditing = function(textElement) {
+      var range, sel;
+      textElement.attr('contenteditable', 'true');
+      range = document.createRange();
+      range.selectNode(textElement[0].childNodes[0]);
+      range.collapse(false);
+      sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return textElement.focus();
+    };
+
+    UserInterface.prototype._endTextEditing = function(textElement, text) {
+      if (text == null) {
+        text = '';
+      }
+      return textElement.text(text).attr('contenteditable', 'false').blur();
     };
 
     UserInterface.prototype._abortEditItemClicked = function(id) {
@@ -1398,9 +1474,9 @@
       item = this._currentlyEditingItems[id];
       delete this._currentlyEditingItems[id];
       if (item != null) {
-        this._showNonEditingState(id);
+        this._endTextEditing($('.item-text', '#item_' + id), item.getText());
+        this._showNonEditingState('#item_' + id);
         this._hideMenu(id);
-        $('.item-text', '#item_' + id).text(item.getText());
       }
       return this._replayIgnoredChanges();
     };
@@ -1410,23 +1486,23 @@
       item = this._currentlyEditingItems[id];
       delete this._currentlyEditingItems[id];
       if (item != null) {
-        this._showNonEditingState(id);
-        this._hideMenu(id);
         text = $('.item-text', '#item_' + id).text();
+        this._endTextEditing($('.item-text', '#item_' + id), text);
+        this._showNonEditingState('#item_' + id);
+        this._hideMenu(id);
         this._manager.saveItem(item.setText(text));
       }
       return this._replayIgnoredChanges();
     };
 
-    UserInterface.prototype._showEditingButtonState = function(id) {
-      $('.abortEdit, .acceptEdit', '#item_' + id).show();
-      return $('.edit, .move', '#item_' + id).hide();
+    UserInterface.prototype._showEditingButtonState = function(elementId) {
+      $('.abortEdit, .acceptEdit', elementId).show();
+      return $('.edit, .move', elementId).hide();
     };
 
-    UserInterface.prototype._showNonEditingState = function(id) {
-      $('.item-text', '#item_' + id).attr('contenteditable', 'false').blur();
-      $('.abortEdit, .acceptEdit', '#item_' + id).hide();
-      return $('.edit, .move', '#item_' + id).show();
+    UserInterface.prototype._showNonEditingState = function(elementId) {
+      $('.abortEdit, .acceptEdit', elementId).hide();
+      return $('.edit, .move', elementId).show();
     };
 
     UserInterface.prototype._toggleMenu = function(id) {
