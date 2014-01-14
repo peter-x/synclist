@@ -46,7 +46,7 @@
 .item-text {
     height: 1.2em;
     width: 10px;
-    overflow: overflow;
+    overflow: visible;
     white-space: nowrap;
 }
 

@@ -95,8 +95,8 @@ requests. The config argument should have tho following attributes:
             jQuery.ajax(ajaxOptions)
             .pipe((data) ->
                 entries = []
-                jQuery('response', data).each((i, el) ->
-                    elPath = jQuery('href', el).text().replace(/^https?:\/\/[^\/]*/, '')
+                jQuery('d\\:response, response', data).each((i, el) ->
+                    elPath = jQuery('d\\:href, href', el).text().replace(/^https?:\/\/[^\/]*/, '')
                     if elPath[..requestPath.length - 1] == requestPath
                         el = elPath[requestPath.length..]
                         entries.push(el) if (el != '' and el != '/')
