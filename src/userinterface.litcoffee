@@ -50,22 +50,12 @@ Find all relevant html elements and register callbacks.
                 .appendTo('#items')
             $('.item-text', newItem)
                 .text('New item')
-            $('.item-center', newItem)
-                .click () =>
-                    @_showEditingButtonState '#newItem'
-                    $('.item-buttons-menu', '#newItem').show()
-                    $('.item-text', '#newItem')
-                        .text('')
-                        .addClass('editing')
-                    @_startTextEditing($('.item-text', newItem))
-            $('.abortEdit', newItem).click (ev) =>
-                ev.preventDefault()
+            newItemEditAbort = (ev) =>
                 @_showNonEditingState '#newItem'
                 $('.item-buttons-menu', '#newItem').hide()
                 @_endTextEditing($('.item-text', newItem), 'New item')
                 $('.item-text').removeClass('editing')
-            $('.acceptEdit', newItem).click (ev) =>
-                ev.preventDefault()
+            newItemEditAccept = () =>
                 text = $('.item-text', '#newItem').text()
                 @_showNonEditingState '#newItem'
                 $('.item-buttons-menu', '#newItem').hide()
@@ -77,7 +67,21 @@ Find all relevant html elements and register callbacks.
                 @_manager.saveItem Item.createNew(text,
                                                   @_currentCategory,
                                                   pos)
-            
+            $('.item-center', newItem)
+                .click () =>
+                    @_showEditingButtonState '#newItem'
+                    $('.item-buttons-menu', '#newItem').show()
+                    $('.item-text', '#newItem')
+                        .text('')
+                        .addClass('editing')
+                    @_startTextEditing($('.item-text', newItem),
+                        newItemEditAccept, newItemEditAbort)
+            $('.abortEdit', newItem).click (ev) =>
+                ev.preventDefault()
+                newItemEditAbort()
+            $('.acceptEdit', newItem).click (ev) =>
+                ev.preventDefault()
+                newItemEditAccept()
             $('#openCategories').click () =>
                 @_showCategoryChooser().pipe(
                         (category) => @_setCategory(category),
@@ -229,10 +233,10 @@ item.
             $('.move', el).bind('touchstart mousedown', (ev) => @_startDrag(id, ev))
             $('.edit', el).click(=> @_editItemClicked(id))
             $('.abortEdit', el)
-                .click(=> @_abortEditItemClicked(id))
+                .click(=> @_abortEditItem(id))
                 .hide()
             $('.acceptEdit', el)
-                .click(=> @_acceptEditItemClicked(id))
+                .click(=> @_acceptEditItem(id))
                 .hide()
             $('.changeCategory', el)
                 .click(=> @_changeItemCategoryClicked(id))
@@ -248,9 +252,13 @@ abort buttons and position the cursor at the end of the text.
             if item?
                 @_currentlyEditingItems[id] = item
                 @_showEditingButtonState '#item_' + id
-                @_startTextEditing($('.item-text', '#item_' + id))
+                @_startTextEditing(
+                    $('.item-text', '#item_' + id),
+                    () => @_acceptEditItem(id),
+                    () => @_abortEditItem(id))
 
-        _startTextEditing: (textElement) ->
+        _startTextEditing: (textElement, onReturn = undefined,
+                                         onEscape = undefined) ->
             textElement.attr('contenteditable', 'true')
             range = document.createRange()
             range.selectNode(textElement[0].childNodes[0])
@@ -258,17 +266,29 @@ abort buttons and position the cursor at the end of the text.
             sel = window.getSelection()
             sel.removeAllRanges()
             sel.addRange(range)
+            if onReturn?
+                textElement.keypress((ev) =>
+                    if ev.which == 13
+                        ev.preventDefault()
+                        onReturn())
+            if onEscape?
+                textElement.keyup((ev) =>
+                    if ev.which == 27
+                        ev.preventDefault()
+                        onEscape())
             textElement.focus()
 
         _endTextEditing: (textElement, text = '') ->
             textElement
                 .text(text)
                 .attr('contenteditable', 'false')
+                .unbind('keypress')
+                .unbind('keyup')
                 .blur()
 
 Abort editing the item, restore the previous user interface.
 
-        _abortEditItemClicked: (id) ->
+        _abortEditItem: (id) ->
             item = @_currentlyEditingItems[id]
             delete @_currentlyEditingItems[id]
             if item?
@@ -281,7 +301,7 @@ Abort editing the item, restore the previous user interface.
 
 Accept the edited text and save the item.
 
-        _acceptEditItemClicked: (id) ->
+        _acceptEditItem: (id) ->
             item = @_currentlyEditingItems[id]
             delete @_currentlyEditingItems[id]
             if item?
