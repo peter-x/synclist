@@ -79,35 +79,48 @@ Find all relevant html elements and register callbacks.
                                                   pos)
             
             $('#openCategories').click () =>
-                $('#categoriesList')
-                    .empty()
-                    .append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>')
-                    .append('<li><a href="#" id="defaultCategory">Default Category</a></li>')
-
-                categories = @_manager.getCategories()
-                categories.sort()
-                for category in categories
-                    continue if category == ''
-                    $('#categoriesList').append(
-                        $('<li/>').append($('<a href="#"/>').text(category)))
-                $('#categoriesList').listview('refresh')
-                $('#categoriesList li a').click (ev) =>
-                    cat = ''
-                    if ev.target.id is 'newCategory'
-                        cat = window.prompt("Text")
-                        return unless cat?
-                    else if ev.target.id is 'defaultCategory'
-                        cat = ''
-                    else
-                        cat = ev.target.text
-                    @_setCategory cat
-                    window.setTimeout((() -> $('#categoriesPanel').popup('close')),
-                                      1)
-                window.setTimeout((() -> $('#categoriesPanel').popup('open')),
-                                  1)
+                @_showCategoryChooser().pipe(
+                        (category) => @_setCategory(category),
+                        () -> console.log('dialog rejected'))
 
             $('#syncState').click () =>
                 @_syncService.fullSync()
+
+Shows the category chooser dialog, returns promise.
+
+        _showCategoryChooser: (titleText = 'Categories') ->
+            deferred = $.Deferred()
+            $('#categoriesListHeader').text(titleText)
+            $('#categoriesList')
+                .empty()
+                .append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>')
+                .append('<li><a href="#" id="defaultCategory">Default Category</a></li>')
+
+            categories = @_manager.getCategories()
+            categories.sort()
+            for category in categories
+                continue if category == ''
+                $('#categoriesList').append(
+                    $('<li/>').append($('<a href="#"/>').text(category)))
+            $('#categoriesList').listview('refresh')
+            $('#categoriesList li a').click (ev) =>
+                cat = ''
+                if ev.target.id is 'newCategory'
+                    cat = window.prompt("Text")
+                    return unless cat?
+                else if ev.target.id is 'defaultCategory'
+                    cat = ''
+                else
+                    cat = ev.target.text
+                deferred.resolve(cat)
+                window.setTimeout((() -> $('#categoriesPanel').popup('close')),
+                                  1)
+            window.setTimeout((() -> $('#categoriesPanel').popup('open')),
+                              1)
+            $('#categoriesPanel').on('popupafterclose', () =>
+                deferred.reject() unless deferred.state() == 'resolved')
+            deferred.promise()
+
 
 Updates the visibility of all items.
 
@@ -200,6 +213,7 @@ item.
               SimpleButton.getMarkup('delete', 'abortEdit') + \
               SimpleButton.getMarkup('arrow-u', 'move') + \
               SimpleButton.getMarkup('edit', 'edit') + \
+              SimpleButton.getMarkup('forward', 'changeCategory') + \
               '</td>' + \
               '<td class="item-buttons-right">' + \
               SimpleButton.getMarkup('grid', 'menu') + \
@@ -220,6 +234,8 @@ item.
             $('.acceptEdit', el)
                 .click(=> @_acceptEditItemClicked(id))
                 .hide()
+            $('.changeCategory', el)
+                .click(=> @_changeItemCategoryClicked(id))
             el
 
 Start editing the item. It is important to first retrieve the item so that
@@ -277,17 +293,27 @@ Accept the edited text and save the item.
                 @_manager.saveItem item.setText(text)
             @_replayIgnoredChanges()
 
+Open a dialog box where an item's category can be changed.
+
+        _changeItemCategoryClicked: (id) ->
+            item = @_manager.getItems()[id]
+            if item?
+                @_hideMenu id
+                @_showCategoryChooser('Move To')
+                    .pipe((category) =>
+                        @_manager.saveItem item.setCategory(category))
+
 Set an item to the editing ui state.
 
         _showEditingButtonState: (elementId) ->
             $('.abortEdit, .acceptEdit', elementId).show()
-            $('.edit, .move', elementId).hide()
+            $('.edit, .move, .changeCategory', elementId).hide()
 
 Set the item back to the normal state.
 
         _showNonEditingState: (elementId) ->
             $('.abortEdit, .acceptEdit', elementId).hide()
-            $('.edit, .move', elementId).show()
+            $('.edit, .move, .changeCategory', elementId).show()
 
 Hide or show the menu.
 
