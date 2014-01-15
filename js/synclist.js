@@ -590,9 +590,9 @@
       return jQuery.ajax(ajaxOptions).pipe(function(data) {
         var entries;
         entries = [];
-        jQuery('response', data).each(function(i, el) {
+        jQuery('d\\:response, response', data).each(function(i, el) {
           var elPath;
-          elPath = jQuery('href', el).text().replace(/^https?:\/\/[^\/]*/, '');
+          elPath = jQuery('d\\:href, href', el).text().replace(/^https?:\/\/[^\/]*/, '');
           if (elPath.slice(0, +(requestPath.length - 1) + 1 || 9e9) === requestPath) {
             el = elPath.slice(requestPath.length);
             if (el !== '' && el !== '/') {
@@ -1229,7 +1229,7 @@
     }
 
     UserInterface.prototype._initializeUI = function() {
-      var newItem,
+      var newItem, newItemEditAbort, newItemEditAccept,
         _this = this;
       $(document).bind('touchmove mousemove', function(event) {
         return _this._moveDrag(event);
@@ -1246,22 +1246,14 @@
       });
       newItem = this._createElementMarkup('newItem').appendTo('#items');
       $('.item-text', newItem).text('New item');
-      $('.item-center', newItem).click(function() {
-        _this._showEditingButtonState('#newItem');
-        $('.item-buttons-menu', '#newItem').show();
-        $('.item-text', '#newItem').text('').addClass('editing');
-        return _this._startTextEditing($('.item-text', newItem));
-      });
-      $('.abortEdit', newItem).click(function(ev) {
-        ev.preventDefault();
+      newItemEditAbort = function(ev) {
         _this._showNonEditingState('#newItem');
         $('.item-buttons-menu', '#newItem').hide();
         _this._endTextEditing($('.item-text', newItem), 'New item');
         return $('.item-text').removeClass('editing');
-      });
-      $('.acceptEdit', newItem).click(function(ev) {
+      };
+      newItemEditAccept = function() {
         var firstItem, pos, text;
-        ev.preventDefault();
         text = $('.item-text', '#newItem').text();
         _this._showNonEditingState('#newItem');
         $('.item-buttons-menu', '#newItem').hide();
@@ -1270,45 +1262,79 @@
         firstItem = _this._itemFromElement($('.item:eq(1)')[0]);
         pos = firstItem != null ? firstItem.getPosition() - 1 : 0;
         return _this._manager.saveItem(Item.createNew(text, _this._currentCategory, pos));
+      };
+      $('.item-center', newItem).click(function() {
+        _this._showEditingButtonState('#newItem');
+        $('.item-buttons-menu', '#newItem').show();
+        $('.item-text', '#newItem').text('').addClass('editing');
+        return _this._startTextEditing($('.item-text', newItem), newItemEditAccept, newItemEditAbort);
+      });
+      $('.abortEdit', newItem).click(function(ev) {
+        ev.preventDefault();
+        return newItemEditAbort();
+      });
+      $('.acceptEdit', newItem).click(function(ev) {
+        ev.preventDefault();
+        return newItemEditAccept();
       });
       $('#openCategories').click(function() {
-        var categories, category, _i, _len;
-        $('#categoriesList').empty().append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>').append('<li><a href="#" id="defaultCategory">Default Category</a></li>');
-        categories = _this._manager.getCategories();
-        categories.sort();
-        for (_i = 0, _len = categories.length; _i < _len; _i++) {
-          category = categories[_i];
-          if (category === '') {
-            continue;
-          }
-          $('#categoriesList').append($('<li/>').append($('<a href="#"/>').text(category)));
-        }
-        $('#categoriesList').listview('refresh');
-        $('#categoriesList li a').click(function(ev) {
-          var cat;
-          cat = '';
-          if (ev.target.id === 'newCategory') {
-            cat = window.prompt("Text");
-            if (cat == null) {
-              return;
-            }
-          } else if (ev.target.id === 'defaultCategory') {
-            cat = '';
-          } else {
-            cat = ev.target.text;
-          }
-          _this._setCategory(cat);
-          return window.setTimeout((function() {
-            return $('#categoriesPanel').popup('close');
-          }), 1);
+        return _this._showCategoryChooser().pipe(function(category) {
+          return _this._setCategory(category);
+        }, function() {
+          return console.log('dialog rejected');
         });
-        return window.setTimeout((function() {
-          return $('#categoriesPanel').popup('open');
-        }), 1);
       });
       return $('#syncState').click(function() {
         return _this._syncService.fullSync();
       });
+    };
+
+    UserInterface.prototype._showCategoryChooser = function(titleText) {
+      var categories, category, deferred, _i, _len,
+        _this = this;
+      if (titleText == null) {
+        titleText = 'Categories';
+      }
+      deferred = $.Deferred();
+      $('#categoriesListHeader').text(titleText);
+      $('#categoriesList').empty().append('<li data-icon="plus"><a href="#" id="newCategory">New Category</a></li>').append('<li><a href="#" id="defaultCategory">Default Category</a></li>');
+      categories = this._manager.getCategories();
+      categories.sort();
+      for (_i = 0, _len = categories.length; _i < _len; _i++) {
+        category = categories[_i];
+        if (category === '') {
+          continue;
+        }
+        $('#categoriesList').append($('<li/>').append($('<a href="#"/>').text(category)));
+      }
+      $('#categoriesList').listview('refresh');
+      $('#categoriesList li a').click(function(ev) {
+        var cat;
+        cat = '';
+        if (ev.target.id === 'newCategory') {
+          cat = window.prompt("Text");
+          if (cat == null) {
+            return;
+          }
+        } else if (ev.target.id === 'defaultCategory') {
+          cat = '';
+        } else {
+          cat = ev.target.text;
+        }
+        deferred.resolve(cat);
+        return window.setTimeout((function() {
+          return $('#categoriesPanel').popup('close');
+        }), 1);
+      });
+      window.setTimeout((function() {
+        return $('#categoriesPanel').popup('open');
+      }), 1);
+      $('#categoriesPanel').on('popupafterclose', function() {
+        if (deferred.state() !== 'resolved') {
+          return deferred.reject();
+        }
+      });
+      return deferred.promise();
     };
 
     UserInterface.prototype._showHideItems = function() {
@@ -1409,7 +1435,7 @@
     };
 
     UserInterface.prototype._createElementMarkup = function(elementId) {
-      return $('<table class="item">' + '<tr>' + '<td class="item-buttons-left">' + SimpleButton.getMarkup('check', 'resolved') + '</td>' + '<td class="item-center">' + '<div class="item-text"></div>' + '</td>' + '<td class="item-buttons-menu">' + SimpleButton.getMarkup('check', 'acceptEdit') + SimpleButton.getMarkup('delete', 'abortEdit') + SimpleButton.getMarkup('arrow-u', 'move') + SimpleButton.getMarkup('edit', 'edit') + '</td>' + '<td class="item-buttons-right">' + SimpleButton.getMarkup('grid', 'menu') + '</td>' + '</tr>' + '</table>').attr('id', elementId);
+      return $('<table class="item">' + '<tr>' + '<td class="item-buttons-left">' + SimpleButton.getMarkup('check', 'resolved') + '</td>' + '<td class="item-center">' + '<div class="item-text"></div>' + '</td>' + '<td class="item-buttons-menu">' + SimpleButton.getMarkup('check', 'acceptEdit') + SimpleButton.getMarkup('delete', 'abortEdit') + SimpleButton.getMarkup('arrow-u', 'move') + SimpleButton.getMarkup('edit', 'edit') + SimpleButton.getMarkup('forward', 'changeCategory') + '</td>' + '<td class="item-buttons-right">' + SimpleButton.getMarkup('grid', 'menu') + '</td>' + '</tr>' + '</table>').attr('id', elementId);
     };
 
     UserInterface.prototype._createElement = function(id) {
@@ -1429,16 +1455,20 @@
         return _this._editItemClicked(id);
       });
       $('.abortEdit', el).click(function() {
-        return _this._abortEditItemClicked(id);
+        return _this._abortEditItem(id);
       }).hide();
       $('.acceptEdit', el).click(function() {
-        return _this._acceptEditItemClicked(id);
+        return _this._acceptEditItem(id);
       }).hide();
+      $('.changeCategory', el).click(function() {
+        return _this._changeItemCategoryClicked(id);
+      });
       return el;
     };
 
     UserInterface.prototype._editItemClicked = function(id) {
-      var item;
+      var item,
+        _this = this;
       if (this._currentlyEditingItems[id] != null) {
         return;
       }
@@ -1446,12 +1476,23 @@
       if (item != null) {
         this._currentlyEditingItems[id] = item;
         this._showEditingButtonState('#item_' + id);
-        return this._startTextEditing($('.item-text', '#item_' + id));
+        return this._startTextEditing($('.item-text', '#item_' + id), function() {
+          return _this._acceptEditItem(id);
+        }, function() {
+          return _this._abortEditItem(id);
+        });
       }
     };
 
-    UserInterface.prototype._startTextEditing = function(textElement) {
-      var range, sel;
+    UserInterface.prototype._startTextEditing = function(textElement, onReturn, onEscape) {
+      var range, sel,
+        _this = this;
+      if (onReturn == null) {
+        onReturn = void 0;
+      }
+      if (onEscape == null) {
+        onEscape = void 0;
+      }
       textElement.attr('contenteditable', 'true');
       range = document.createRange();
       range.selectNode(textElement[0].childNodes[0]);
@@ -1459,6 +1500,22 @@
       sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
+      if (onReturn != null) {
+        textElement.keypress(function(ev) {
+          if (ev.which === 13) {
+            ev.preventDefault();
+            return onReturn();
+          }
+        });
+      }
+      if (onEscape != null) {
+        textElement.keyup(function(ev) {
+          if (ev.which === 27) {
+            ev.preventDefault();
+            return onEscape();
+          }
+        });
+      }
       return textElement.focus();
     };
 
@@ -1466,10 +1523,10 @@
       if (text == null) {
         text = '';
       }
-      return textElement.text(text).attr('contenteditable', 'false').blur();
+      return textElement.text(text).attr('contenteditable', 'false').unbind('keypress').unbind('keyup').blur();
     };
 
-    UserInterface.prototype._abortEditItemClicked = function(id) {
+    UserInterface.prototype._abortEditItem = function(id) {
       var item;
       item = this._currentlyEditingItems[id];
       delete this._currentlyEditingItems[id];
@@ -1481,7 +1538,7 @@
       return this._replayIgnoredChanges();
     };
 
-    UserInterface.prototype._acceptEditItemClicked = function(id) {
+    UserInterface.prototype._acceptEditItem = function(id) {
       var item, text;
       item = this._currentlyEditingItems[id];
       delete this._currentlyEditingItems[id];
@@ -1495,14 +1552,26 @@
       return this._replayIgnoredChanges();
     };
 
+    UserInterface.prototype._changeItemCategoryClicked = function(id) {
+      var item,
+        _this = this;
+      item = this._manager.getItems()[id];
+      if (item != null) {
+        this._hideMenu(id);
+        return this._showCategoryChooser('Move To').pipe(function(category) {
+          return _this._manager.saveItem(item.setCategory(category));
+        });
+      }
+    };
+
     UserInterface.prototype._showEditingButtonState = function(elementId) {
       $('.abortEdit, .acceptEdit', elementId).show();
-      return $('.edit, .move', elementId).hide();
+      return $('.edit, .move, .changeCategory', elementId).hide();
     };
 
     UserInterface.prototype._showNonEditingState = function(elementId) {
       $('.abortEdit, .acceptEdit', elementId).hide();
-      return $('.edit, .move', elementId).show();
+      return $('.edit, .move, .changeCategory', elementId).show();
     };
 
     UserInterface.prototype._toggleMenu = function(id) {
