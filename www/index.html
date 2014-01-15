@@ -19,7 +19,7 @@
         <h1>Synclist</h1>
         <a href="#settings" class="ui-btn-right" data-icon="bars">Settings</a>
     </div>
-    <div data-role="content">
+    <div data-role="content" style="overflow: visible;">
         <div class="insetremover">
             <div data-role="header" class="ui-bar-c">
                 <button id="showResolved" data-inline="true" data-icon="check" data-iconpos="notext" class="ui-btn-left"></button>
@@ -30,7 +30,7 @@
         </div>
         <div data-role="popup" data-history="false" id="categoriesPanel" style="min-width:250px;">
             <div data-role="header">
-                <h1>Categories</h1>
+                <h1 id="categoriesListHeader">Categories</h1>
             </div>
             <div data-role="content">
                 <ul id="categoriesList" data-role="listview">
