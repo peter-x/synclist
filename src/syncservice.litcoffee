@@ -61,6 +61,11 @@ successful.
                 options = {context: setting.location}
                 encpassword = setting.encpassword
                 new Database(dbClass, options, encpassword)
+            else if setting.type == 'RemoteStorage'
+                dbClass = RemoteStorageBackend
+                options = {user: setting.location}
+                encpassword = setting.encpassword
+                new Database(dbClass, options, encpassword)
             else if setting.type == 'WebDAV'
                 dbClass = WebDavBackend
                 options = {url: setting.location, \
