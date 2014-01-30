@@ -122,6 +122,57 @@ requests. The config argument should have tho following attributes:
                 .then( => @_changeNotification(key))
 
 
+RemoteStorage Backend
+=====================
+
+RemoteStorage backend ( http://remotestorage.io ) - due to its requirement to
+authenticate via OAuth, it is a bit more complex (but of course has improved
+security).
+The config argument should have tho following attributes:
+
+ - user: username@service.com
+
+The backend tries to login automatically, which can cause a page change because
+of OAuth.
+
+    class RemoteStorageBackend
+        constructor: (@_changeNotification, config) ->
+            @_user = config.user
+            @_rs = remoteStorage
+            @_rs.access.claim('synclist', 'rw')
+            @_rs.connect(@_user)
+
+        list: () ->
+            d = jQuery.Deferred()
+            if not @_rs.connected
+                d.reject()
+            else
+                @_rs.get('/synclist/')
+                    .then(((code, result, mimetype) ->
+                                d.resolve(Utilities.setToArray result)),
+                          () -> d.reject())
+            d.promise()
+
+        get: (key) ->
+            d = jQuery.Deferred()
+            if not @_rs.connected
+                d.reject()
+            else
+                @_rs.get('/synclist/' + key)
+                    .then(((code, data, mimetype, revision) -> d.resolve(data)),
+                          () -> d.reject())
+            d.promise()
+
+        put: (key, data) ->
+            d = jQuery.Deferred()
+            if not @_rs.connected
+                d.reject()
+            else
+                @_rs.put('/synclist/' + key, data, 'text/plain')
+                    .then((() -> d.resolve()),
+                          () -> d.reject())
+            d.promise()
+
 Database
 ========
 
@@ -159,3 +210,4 @@ Export the Interface
     (exports ? this).Database = Database
     (exports ? this).LocalStorageBackend = LocalStorageBackend
     (exports ? this).WebDavBackend = WebDavBackend
+    (exports ? this).RemoteStorageBackend = RemoteStorageBackend
