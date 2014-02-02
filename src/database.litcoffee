@@ -135,6 +135,7 @@ The config argument should have tho following attributes:
 The backend tries to login automatically, which can cause a page change because
 of OAuth.
 
+
     class RemoteStorageBackend
         constructor: (@_changeNotification, config) ->
             @_user = config.user
@@ -143,35 +144,26 @@ of OAuth.
             @_rs.connect(@_user)
 
         list: () ->
-            d = jQuery.Deferred()
-            if not @_rs.connected
-                d.reject()
-            else
-                @_rs.get('/synclist/')
-                    .then(((code, result, mimetype) ->
-                                d.resolve(Utilities.setToArray result)),
-                          () -> d.reject())
-            d.promise()
+            @_action((() => @_rs.get('/synclist/')),
+                    (code, data, mimetype) -> Utilities.setToArray data)
 
         get: (key) ->
-            d = jQuery.Deferred()
-            if not @_rs.connected
-                d.reject()
-            else
-                @_rs.get('/synclist/' + key)
-                    .then(((code, data, mimetype, revision) -> d.resolve(data)),
-                          () -> d.reject())
-            d.promise()
+            @_action((() => @_rs.get('/synclist/' + key)),
+                    (code, data, mimetype, revision) -> data)
 
         put: (key, data) ->
+            @_action(() => @_rs.put('/synclist/' + key, data, 'text/plain'))
+
+        _action: (request, transform = (() ->)) ->
             d = jQuery.Deferred()
             if not @_rs.connected
                 d.reject()
             else
-                @_rs.put('/synclist/' + key, data, 'text/plain')
-                    .then((() -> d.resolve()),
-                          () -> d.reject())
+                request().then(((args...) -> d.resolve(transform(args...))),
+                               () -> d.reject())
             d.promise()
+
+        
 
 Database
 ========

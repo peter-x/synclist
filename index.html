@@ -64,29 +64,34 @@
                 <input type="hidden" id="storage-index-1"/>
                 <div data-role="fieldcontain">
                     <label for="type-1">Type</label>
-                    <select name="type-1" id="type-1">
+                    <select id="type-1">
                         <option value="RemoteStorage">RemoteStorage</option>
                         <option value="WebDAV">WebDav</option>
                     </select>
                 </div>
-                <div data-role="fieldcontain">
-                    <label for="location-1">Location / URL</label>
-                    <input name="location-1" id="location-1">
+                <div data-role="fieldcontain" class="flexible-setting setting-webdav">
+                    <label for="webdav-url">URL</label>
+                    <input id="webdav-url" placeholder="https://www.example.com/path">
                 </div>
-                <div data-role="fieldcontain">
-                    <label for="username-1">Username</label>
-                    <input name="username-1" id="username-1">
+                <div data-role="fieldcontain" class="flexible-setting setting-webdav">
+                    <label for="webdav-username">Username</label>
+                    <input id="webdav-username" placeholder="username">
                 </div>
-                <div data-role="fieldcontain">
-                    <label for="password-1">Password</label>
-                    <input name="password-1" id="password-1">
+                <div data-role="fieldcontain" class="flexible-setting setting-webdav">
+                    <label for="webdav-password">Password</label>
+                    <input id="webdav-password" placeholder="login password">
+                </div>
+                <div data-role="fieldcontain" class="flexible-setting setting-remotestorage">
+                    <label for="remotestorage-address">Address</label>
+                    <input id="remotestorage-address" placeholder="user@storage.example.com">
                 </div>
                 <div data-role="fieldcontain">
                     <label for="encpassword-1">Encryption Password</label>
-                    <input name="encpassword-1" id="encpassword-1">
+                    <input id="encpassword-1" placeholder="encryption password">
                 </div>
                 <div data-role="fieldcontain">
-                    <button id="apply-1">Test and Apply</button>
+                    <button id="apply-1" data-inline="true">Apply</button>
+                    <button id="delete-1" data-inline="true">Delete</button>
                 </div>
             </li>
         </ul>
