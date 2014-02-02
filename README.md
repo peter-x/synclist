@@ -16,20 +16,38 @@ probably usable by synclist. These backends include
 or a simple WebDAV server.
 
 
-Screenshots and Demo
-====================
+Show me the Application!
+========================
 
-Just [try the application](http://peter-x.github.io/synclist)! Per default,
-everything will be stored locally in your browser, but you can add a remote
-storage to synchronize between different browsers (and smartphones). There is
-also a working Android package!
+It's here: http://peter-x.github.io/synclist
+You can just use it, no installation required!
+
+You can create items, mark them as done, move them between categories and also
+move them inside the list (just drag on the little arrow symbol in the menu).
+
+Per default, everything will be stored locally in your browser, but you can add
+a remote storage to synchronize between different browsers (and smartphones).
+The easiest way to do this is to create an account for
+[RemoteStorage](http://remotestorage.io) at
+[5apps](http://5apps.com/users/sign_up?site=storage). In the
+application, add the storage by giving your account name and don't worry:
+Everything stored remotely will be encrypted if you supply a key.
+
+If you don't want to enter the URL in your phone every time: There is a very
+comfortable Android package! The package does not yet automatically update
+itself, so please come back here regularly for updates.
 
 [Synclist in your Browser](http://peter-x.github.io/synclist/)
 
 [Synclist on your Android Phone](https://github.com/peter-x/synclist/raw/cordova/platforms/android/bin/SyncList-debug.apk)
 
+Have fun and please give us some feedback if you have time!
+
+Implementation Details
+======================
+
 Data
-====
+----
 
 The data is stored as a collection of versioned items, where each item has the
 following properties:
@@ -56,7 +74,7 @@ Each item is stored json-encoded under the file name `id + '-' + revid`.
 An item is considered resolved iff its resolution timestamp is nonzero.
 
 Benefits of this Way to Store the Data
-======================================
+--------------------------------------
 
 Pushing a change to the storage consists of simply adding a file to the storage.
 There will be no write conflicts unless we find a hash collision. The current
@@ -78,7 +96,7 @@ copying all files, other changes will not be overwritten (assuming there are no
 hash collisions).
 
 Problems to Think About
-=======================
+-----------------------
 
 How can changes to the storage be detected?
 
@@ -89,7 +107,7 @@ probably still need milk.
 
 
 Security
-========
+--------
 
 For simplicity, access keys for remote storages are (can be) all stored locally, nobody
 wants to enter passwords for a mobile application.
@@ -99,7 +117,7 @@ the item.
 
 
 Conflict Resolution
-===================
+-------------------
 
 A conflict is detected if there is a revision that is not contained in the
 `previous revisions` field of the most recent revision of an item.
@@ -127,7 +145,7 @@ Fields that can conflict and how to resolve them:
 
 
 Splitting on Conflict
-=====================
+---------------------
 
 If two revisions of an item are too different (especially when the text changes
 drastically), splitting the item into two could be reasonable (this needs to be
@@ -138,7 +156,7 @@ feasibility has to be determined.
 
  
 Storage Cleanup
-===============
+---------------
 
 Note that there is no way to explicitly delete items, since conflicts in deleted items
 cannot be resolved. To keep the storage small, though, items are automatically
