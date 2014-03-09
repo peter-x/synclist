@@ -400,14 +400,14 @@ The functions handling drag and drop of items in the list.
 Reposition the currently dragging item by moving it in the DOM.
 
         _repositionItem: () ->
-            return unless @_currentlyDraggingItem?
+            return false unless @_currentlyDraggingItem?
 
             el = @_currentlyDraggingElement
             $('.item').css(
                 position: '',
                 top: '')
             move = Math.round((@_dragCurrent[1] - @_dragStart[1]) / @_itemHeight)
-            return if move == 0
+            return false if move == 0
 
             siblingIndex = 0
             sibling = el
@@ -424,28 +424,30 @@ Reposition the currently dragging item by moving it in the DOM.
             @_dragStart[1] += @_itemHeight * siblingIndex
             el[0].style.left = '0px'
             el[0].style.top = (@_dragCurrent[1] - @_dragStart[1]) + 'px'
+            siblingIndex != 0
 
         _endDrag: (event) ->
             item = @_currentlyDraggingItem
             return unless item?
             event.preventDefault()
-            @_repositionItem()
+            movedSomething = @_repositionItem()
             @_currentlyDraggingItem = undefined
             el = @_currentlyDraggingElement
             @_currentlyDraggingElement = undefined
-            lower = @_itemFromElement(el.prev()[0])?.getPosition()
-            upper = @_itemFromElement(el.next()[0])?.getPosition()
-            pos =
-                if lower? and upper?
-                    (lower + upper) / 2.0
-                else if lower?
-                    lower + 1
-                else if upper?
-                    upper - 1
-                else
-                    0
-            @_manager.saveItem(item.setPosition(pos))
-            .then(=> @_hideMenu item.getID())
+            if movedSomething
+                lower = @_itemFromElement(el.prev()[0])?.getPosition()
+                upper = @_itemFromElement(el.next()[0])?.getPosition()
+                pos =
+                    if lower? and upper?
+                        (lower + upper) / 2.0
+                    else if lower?
+                        lower + 1
+                    else if upper?
+                        upper - 1
+                    else
+                        0
+                @_manager.saveItem(item.setPosition(pos))
+                .then(=> @_hideMenu item.getID())
             # the update callback will hopefully re-position the element
             @_replayIgnoredChanges()
 
