@@ -59,6 +59,9 @@ For each change in the database, recreate the UI.
                             @_populateSettingsForStorageDialog(index)
                             $.mobile.changePage('#settingsForStorage')))
                     .appendTo(list)
+            try
+                list.listview()
+            catch error
 
         _populateSettingsForStorageDialog: (index) ->
             s = $('#settingsForStorage')
